@@ -12,16 +12,19 @@ typedef struct
     int16_t dps_y;
     int16_t dps_z;
 } imu_t;
-    
+
 typedef struct
 {
-    imu_t imu[4];
+    imu_t imu;
     uint16_t rpm;
     uint16_t speed;
     uint8_t temperature;
-    uint8_t flags;      // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
+    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     uint32_t timestamp;
 
 } packet_t;
 
-#endif 
+// Packet constantly saved
+packet_t volatile_packet;
+
+#endif

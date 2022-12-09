@@ -2,14 +2,9 @@
 #include <SPI.h>
 #include <SD.h>
 #include "hardware_defs.h"
-
-// #define EMBEDDED
-
-#ifndef EMBEDDED
+#include "can_defs.h"
 
 // vars do timer millis que determina o intervalo entre medidas
-unsigned long period = 5; // modifique aqui o intervalo entre medidas, valor em ms
-unsigned long time_now = 0;
 int pulse_counter = 0;
 int num_files = 0;
 
@@ -18,64 +13,83 @@ int countFiles(File dir);
 void pinConfig();
 void taskSetup();
 void sdConfig();
-
+void setupVolatilePacket();
+String packetToString();
 
 // Tasks
-void TaskSaving(void *pvParameters);
+void TaskSave(void *pvParameters);
+void TaskCANFilter(void *pvParameters);
 
 void setup()
 {
   // Setup functions
-  pinConfig();
-
-  taskSetup();
-
-  taskSetup(); // Tasks
+  pinConfig();           // Hardware Config
+  taskSetup();           // Tasks
+  setupVolatilePacket(); // volatile packet default values
 }
 
-void loop()
+void loop(){}
+
+void taskSetup()
 {
+  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker
+  xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
+}
 
-  if (millis() >= time_now + period)
+String packetToString()
+{
+  String dataString = "";
+  // imu
+  dataString += String(volatile_packet.imu.acc_x);
+  dataString += ",";
+  dataString += String(volatile_packet.imu.acc_y);
+  dataString += ",";
+  dataString += String(volatile_packet.imu.acc_z);
+  dataString += ",";
+  dataString += String(volatile_packet.imu.dps_x);
+  dataString += ",";
+  dataString += String(volatile_packet.imu.dps_y);
+  dataString += ",";
+  dataString += String(volatile_packet.imu.dps_z);
+
+  dataString += ",";
+  dataString += String(volatile_packet.rpm);
+  dataString += ",";
+  dataString += String(volatile_packet.speed);
+  dataString += ",";
+  dataString += String(volatile_packet.temperature);
+  dataString += ",";
+  dataString += String(volatile_packet.flags);
+  dataString += ",";
+  dataString += String(millis());
+  return dataString;
+}
+
+void TaskSaving()
+{
+  sdConfig();
+
+  while (1)
   {
-    time_now += period;
-
-    String dataString = "";
-    dataString += String(time_now);
-    dataString += ",";
-    dataString += String(pulse_counter);
 
     File dataFile = SD.open(FILE_NAME, FILE_WRITE);
 
     if (dataFile)
     {
-      dataFile.println(dataString);
+      dataFile.println(packetToString());
       dataFile.close();
     }
 
     else
     {
-      Serial.println(F("ERRO"));
+      digitalWrite(EMBEDDED_LED, HIGH);
+      /* If this chunk of code needs to be tested, change
+        the saving preiod to something humanly perceptible
+        inside include/sh.h
+      */
     }
-    pulse_counter = 0;
-  }
-}
 
-#endif
-
-void taskSetup()
-{
-  xTaskCreate(TaskSaving, "SD_task", 512, NULL, 5, NULL); // SD ticker
-}
-
-void TaskSaving()
-{
-
-  sdConfig();
-
-  while (1)
-  {
-    vTaskDelay(200/portTICK_PERIOD_MS); // Saving frequency
+    vTaskDelay(SAVING_PERIOD / portTICK_PERIOD_MS); // Saving frequency
   }
 }
 
@@ -121,4 +135,19 @@ void pinConfig()
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   return;
+}
+
+void setupVolatilePacket()
+{
+  volatile_packet.imu.acc_x = 0;
+  volatile_packet.imu.acc_y = 0;
+  volatile_packet.imu.acc_z = 0;
+  volatile_packet.imu.dps_x = 0;
+  volatile_packet.imu.dps_y = 0;
+  volatile_packet.imu.dps_z = 0;
+  volatile_packet.rpm = 0;
+  volatile_packet.speed = 0;
+  volatile_packet.temperature = 0;
+  volatile_packet.flags = 0;
+  volatile_packet.timestamp = 0;
 }

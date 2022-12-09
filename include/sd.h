@@ -6,6 +6,9 @@
 #include "hardware_defs.h"
 #include "packets.h"
 
+#define SAVING_PERIOD 5
+
+
 char FILE_NAME[20];
 File root;
 
