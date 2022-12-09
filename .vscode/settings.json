@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "sd.h": "c",
+        "*.tcc": "cpp",
+        "fstream": "cpp"
+    }
+}
