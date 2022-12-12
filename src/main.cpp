@@ -3,6 +3,7 @@
 #include <SD.h>
 #include "hardware_defs.h"
 #include "can_defs.h"
+#include "mcp2515_can.h"
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -15,6 +16,7 @@ void taskSetup();
 void sdConfig();
 void setupVolatilePacket();
 String packetToString();
+void IRAM_ATTR can_ISR();
 
 // Tasks
 void TaskSave(void *pvParameters);
@@ -22,18 +24,64 @@ void TaskCANFilter(void *pvParameters);
 
 void setup()
 {
+  // CAN Queue creation
+  xQueueCreate(MSG_QUEUE_LEN,sizeof());
+
   // Setup functions
-  pinConfig();           // Hardware Config
+  pinConfig();           // Hardware and Interrupt Config
   taskSetup();           // Tasks
   setupVolatilePacket(); // volatile packet default values
 }
 
-void loop(){}
+void loop() {}
+
+/* Setup Descriptions */
 
 void taskSetup()
 {
-  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker
   xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
+  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker
+}
+
+void sdConfig()
+{
+  if (!SD.begin(SD_CS))
+  {
+    digitalWrite(EMBEDDED_LED, HIGH);
+    while (1)
+      ;
+  }
+  root = SD.open("/");
+  int num_files = countFiles(root);
+  sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+}
+
+void pinConfig()
+{
+  // Pins
+  pinMode(EMBEDDED_LED, OUTPUT);
+  pinMode(CAN_INTERRUPT, INPUT_PULLUP);
+
+  // Interruptions
+  attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), canISR, FALLING);
+  return;
+}
+
+/* SD functions */
+
+void setupVolatilePacket()
+{
+  volatile_packet.imu.acc_x = 0;
+  volatile_packet.imu.acc_y = 0;
+  volatile_packet.imu.acc_z = 0;
+  volatile_packet.imu.dps_x = 0;
+  volatile_packet.imu.dps_y = 0;
+  volatile_packet.imu.dps_z = 0;
+  volatile_packet.rpm = 0;
+  volatile_packet.speed = 0;
+  volatile_packet.temperature = 0;
+  volatile_packet.flags = 0;
+  volatile_packet.timestamp = 0;
 }
 
 String packetToString()
@@ -62,6 +110,7 @@ String packetToString()
   dataString += String(volatile_packet.flags);
   dataString += ",";
   dataString += String(millis());
+  dataString += ",";
   return dataString;
 }
 
@@ -72,7 +121,7 @@ void TaskSaving()
   while (1)
   {
 
-    File dataFile = SD.open(FILE_NAME, FILE_WRITE);
+    File dataFile = SD.open(file_name, FILE_APPEND);
 
     if (dataFile)
     {
@@ -91,11 +140,6 @@ void TaskSaving()
 
     vTaskDelay(SAVING_PERIOD / portTICK_PERIOD_MS); // Saving frequency
   }
-}
-
-void pulse_counter_ISR()
-{
-  pulse_counter++;
 }
 
 int countFiles(File dir)
@@ -117,37 +161,26 @@ int countFiles(File dir)
   return fileCountOnSD - 1;
 }
 
-void sdConfig()
+/* Can functions */
+
+void IRAM_ATTR canISR()
 {
-  if (!SD.begin(SD_CS))
+  noInterrupts();
+
+  interrupts();
+}
+
+void TaskCANFilter(void *pvParameters)
+{
+  while (1)
   {
-    digitalWrite(EMBEDDED_LED, HIGH);
-    while (1)
-      ;
+    if (xQueueReceive(msg_queue, (void *)&item, 0) == pdTRUE) {
+
+    }
+      
   }
-  root = SD.open("/");
-  int num_files = countFiles(root);
-  sprintf(FILE_NAME, "%s%d.csv", "data", num_files + 1);
-}
 
-void pinConfig()
-{
-  pinMode(EMBEDDED_LED, OUTPUT);
-  pinMode(CAN_INTERRUPT, INPUT_PULLUP);
-  return;
-}
+  vTaskDelay(5 / portTICK_PERIOD_MS);
 
-void setupVolatilePacket()
-{
-  volatile_packet.imu.acc_x = 0;
-  volatile_packet.imu.acc_y = 0;
-  volatile_packet.imu.acc_z = 0;
-  volatile_packet.imu.dps_x = 0;
-  volatile_packet.imu.dps_y = 0;
-  volatile_packet.imu.dps_z = 0;
-  volatile_packet.rpm = 0;
-  volatile_packet.speed = 0;
-  volatile_packet.temperature = 0;
-  volatile_packet.flags = 0;
-  volatile_packet.timestamp = 0;
+  vTaskDelete(NULL);
 }

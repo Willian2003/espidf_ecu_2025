@@ -1,6 +1,8 @@
 #ifndef CAN_DEFS_H_
 #define CAN_DEFS_H_
 
+// IDs
+
 #define BUFFER_SIZE     50
 #define THROTTLE_MID    0x00
 #define THROTTLE_RUN    0x01
@@ -17,6 +19,17 @@
 #define FUEL_ID         0x500       // 3by = fuel level + timestamp
 #define LAT_ID          0x600       // 1by
 #define LNG_ID          0x700       // 1by
+
+// DEV DEFINITIONS
+
+#define MSG_QUEUE_LEN 5
+
+static QueueHandle_t msg_queue;
+
+
+mcp2515_can CAN(CAN_CS);
+
+
 
 
 #endif

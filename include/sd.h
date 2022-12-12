@@ -8,8 +8,10 @@
 
 #define SAVING_PERIOD 5
 
+// if testing is needed, raising the value above may help the analisys
 
-char FILE_NAME[20];
+
+char file_name[20];
 File root;
 
 #endif
