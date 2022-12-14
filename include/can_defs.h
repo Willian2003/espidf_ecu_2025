@@ -24,8 +24,6 @@
 
 #define MSG_QUEUE_LEN 5
 
-static QueueHandle_t msg_queue;
-
 
 mcp2515_can CAN(CAN_CS);
 

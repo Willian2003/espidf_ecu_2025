@@ -4,6 +4,7 @@
 #include "hardware_defs.h"
 #include "can_defs.h"
 #include "mcp2515_can.h"
+#include "software_definitions.h"
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -17,15 +18,20 @@ void sdConfig();
 void setupVolatilePacket();
 String packetToString();
 void IRAM_ATTR can_ISR();
+void sdSave();
+void canFilter();
 
-// Tasks
-void TaskSave(void *pvParameters);
-void TaskCANFilter(void *pvParameters);
+// State Machines
+void SdStateMachine(void *pvParameters);
+void ConnStateMachine(void *pvParameters);
+
+// Can flag
+boolean canReady = false;
 
 void setup()
 {
-  // CAN Queue creation
-  xQueueCreate(MSG_QUEUE_LEN,sizeof());
+
+  timer = millis();
 
   // Setup functions
   pinConfig();           // Hardware and Interrupt Config
@@ -39,8 +45,48 @@ void loop() {}
 
 void taskSetup()
 {
-  xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
-  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker
+  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 512, NULL, 5, NULL, 0);
+  // This state machine is responsible for the Basic CAN logging
+  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 512, NULL, 5, NULL, 1);
+  // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
+
+  /* xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
+  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker */
+}
+
+void SdStateMachine(void *pvParameters)
+{
+
+  sdConfig(); // Opens CSV file
+  while (1)
+  {
+    switch (l_state)
+    {
+    case IDLE:
+      if (millis() - timer > 5)
+      {
+        l_state = SAVE;
+        timer = millis();
+      }
+      break;
+
+    case SAVE:
+
+      sdSave();
+
+      l_state = IDLE;
+      break;
+
+    case CAN_STATE:
+
+      l_state = IDLE;
+      attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), canISR, FALLING);
+      break;
+
+    default:
+      break;
+    }
+  }
 }
 
 void sdConfig()
@@ -114,31 +160,19 @@ String packetToString()
   return dataString;
 }
 
-void TaskSaving()
+void sdSave()
 {
-  sdConfig();
+  File dataFile = SD.open(file_name, FILE_APPEND);
 
-  while (1)
+  if (dataFile)
   {
+    dataFile.println(packetToString());
+    dataFile.close();
+  }
 
-    File dataFile = SD.open(file_name, FILE_APPEND);
-
-    if (dataFile)
-    {
-      dataFile.println(packetToString());
-      dataFile.close();
-    }
-
-    else
-    {
-      digitalWrite(EMBEDDED_LED, HIGH);
-      /* If this chunk of code needs to be tested, change
-        the saving preiod to something humanly perceptible
-        inside include/sh.h
-      */
-    }
-
-    vTaskDelay(SAVING_PERIOD / portTICK_PERIOD_MS); // Saving frequency
+  else
+  {
+    digitalWrite(EMBEDDED_LED, HIGH);
   }
 }
 
@@ -165,22 +199,25 @@ int countFiles(File dir)
 
 void IRAM_ATTR canISR()
 {
-  noInterrupts();
-
-  interrupts();
+  detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
+  l_state = CAN_STATE;
 }
 
-void TaskCANFilter(void *pvParameters)
+void canFilter()
 {
   while (1)
   {
-    if (xQueueReceive(msg_queue, (void *)&item, 0) == pdTRUE) {
+    while (CAN_MSGAVAIL == CAN.checkReceive())
+    {
+      byte messageData[8];
+      uint32_t messageId;
+      unsigned char len = 0;
 
+      CAN.readMsgBuf(&len, messageData); // Reads message
+      messageId = CAN.getCanId();
+      uint8_t type = (CAN.isExtendedFrame() << 0) | (CAN.isRemoteRequest() << 1); //  checks kind of message
+
+      canReady = false;
     }
-      
   }
-
-  vTaskDelay(5 / portTICK_PERIOD_MS);
-
-  vTaskDelete(NULL);
 }
