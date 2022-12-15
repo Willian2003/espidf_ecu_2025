@@ -24,6 +24,9 @@
 #define MSG_QUEUE_LEN 5
 
 
+#include "mcp2515_can.h"
+
+
 mcp2515_can CAN(CAN_CS);
 
 

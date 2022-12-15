@@ -1,10 +1,12 @@
 #include <Arduino.h>
-#include <SPI.h>
+#include <FS.h>
 #include <SD.h>
+#include <SPI.h>
 #include "hardware_defs.h"
 #include "can_defs.h"
 #include "mcp2515_can.h"
 #include "software_definitions.h"
+#include "saving.h"
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -82,7 +84,7 @@ void SdStateMachine(void *pvParameters)
       canFilter();
 
       l_state = IDLE;
-      attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), canISR, FALLING);
+      attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
       break;
 
     default:
@@ -111,7 +113,7 @@ void pinConfig()
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
 
   // Interruptions
-  attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), canISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
   return;
 }
 
@@ -157,7 +159,7 @@ String packetToString()
   dataString += ",";
   dataString += String(volatile_packet.flags);
   dataString += ",";
-  dataString += String(millis());
+  dataString += String(volatile_packet.timestamp);
   dataString += ",";
   return dataString;
 }
@@ -199,7 +201,7 @@ int countFiles(File dir)
 
 /* Can functions */
 
-void IRAM_ATTR canISR()
+void IRAM_ATTR can_ISR()
 {
   detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
   l_state = CAN_STATE;
@@ -207,8 +209,7 @@ void IRAM_ATTR canISR()
 
 void canFilter()
 {
-  while (1)
-  {
+  
     while (CAN_MSGAVAIL == CAN.checkReceive())
     {
       byte messageData[8];
@@ -246,3 +247,5 @@ void canFilter()
       }
     }
   }
+
+  void ConnStateMachine(void *pvParameters){}
