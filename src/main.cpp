@@ -79,6 +79,8 @@ void SdStateMachine(void *pvParameters)
 
     case CAN_STATE:
 
+      canFilter();
+
       l_state = IDLE;
       attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), canISR, FALLING);
       break;
@@ -117,12 +119,12 @@ void pinConfig()
 
 void setupVolatilePacket()
 {
-  volatile_packet.imu.acc_x = 0;
-  volatile_packet.imu.acc_y = 0;
-  volatile_packet.imu.acc_z = 0;
-  volatile_packet.imu.dps_x = 0;
-  volatile_packet.imu.dps_y = 0;
-  volatile_packet.imu.dps_z = 0;
+  volatile_packet.imu_acc.acc_x = 0;
+  volatile_packet.imu_acc.acc_y = 0;
+  volatile_packet.imu_acc.acc_z = 0;
+  volatile_packet.imu_dps.dps_x = 0;
+  volatile_packet.imu_dps.dps_y = 0;
+  volatile_packet.imu_dps.dps_z = 0;
   volatile_packet.rpm = 0;
   volatile_packet.speed = 0;
   volatile_packet.temperature = 0;
@@ -134,17 +136,17 @@ String packetToString()
 {
   String dataString = "";
   // imu
-  dataString += String(volatile_packet.imu.acc_x);
+  dataString += String(volatile_packet.imu_acc.acc_x);
   dataString += ",";
-  dataString += String(volatile_packet.imu.acc_y);
+  dataString += String(volatile_packet.imu_acc.acc_y);
   dataString += ",";
-  dataString += String(volatile_packet.imu.acc_z);
+  dataString += String(volatile_packet.imu_acc.acc_z);
   dataString += ",";
-  dataString += String(volatile_packet.imu.dps_x);
+  dataString += String(volatile_packet.imu_dps.dps_x);
   dataString += ",";
-  dataString += String(volatile_packet.imu.dps_y);
+  dataString += String(volatile_packet.imu_dps.dps_y);
   dataString += ",";
-  dataString += String(volatile_packet.imu.dps_z);
+  dataString += String(volatile_packet.imu_dps.dps_z);
 
   dataString += ",";
   dataString += String(volatile_packet.rpm);
@@ -215,9 +217,32 @@ void canFilter()
 
       CAN.readMsgBuf(&len, messageData); // Reads message
       messageId = CAN.getCanId();
-      uint8_t type = (CAN.isExtendedFrame() << 0) | (CAN.isRemoteRequest() << 1); //  checks kind of message
 
-      canReady = false;
+      volatile_packet.timestamp = millis();
+
+      if (messageId == RPM_ID)
+      {
+        mempcpy(&volatile_packet.rpm, (uint16_t*)messageData, len);
+      }
+      if (messageId == SPEED_ID)
+      {
+        mempcpy(&volatile_packet.speed, (uint16_t*)messageData, len);
+      }
+      if (messageId == TEMPERATURE_ID)
+      {
+        mempcpy(&volatile_packet.temperature, (uint8_t*)messageData, len);
+      }
+      if (messageId == FLAGS_ID)
+      {
+        mempcpy(&volatile_packet.flags, (uint8_t*)messageData, len);
+      }
+      if (messageId == IMU_ACC_ID)
+      {
+        memcpy(&volatile_packet.imu_acc,(imu_acc_t*) messageData, len);
+      }
+      if (messageId == IMU_DPS_ID)
+      {
+        memcpy(&volatile_packet.imu_dps,(imu_dps_t*) messageData, len);
+      }
     }
   }
-}

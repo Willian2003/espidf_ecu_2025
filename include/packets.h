@@ -8,14 +8,19 @@ typedef struct
     int16_t acc_x;
     int16_t acc_y;
     int16_t acc_z;
-    int16_t dps_x;
-    int16_t dps_y;
-    int16_t dps_z;
-} imu_t;
+} imu_acc_t;
 
 typedef struct
 {
-    imu_t imu;
+    int16_t dps_x;
+    int16_t dps_y;
+    int16_t dps_z;
+} imu_dps_t;
+
+typedef struct
+{
+    imu_dps_t imu_dps;
+    imu_acc_t imu_acc;
     uint16_t rpm;
     uint16_t speed;
     uint8_t temperature;
@@ -25,6 +30,6 @@ typedef struct
 } packet_t;
 
 // Packet constantly saved
-packet_t volatile volatile_packet;
+packet_t volatile_packet;
 
 #endif

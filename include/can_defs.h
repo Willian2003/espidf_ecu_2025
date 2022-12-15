@@ -3,7 +3,6 @@
 
 // IDs
 
-#define BUFFER_SIZE     50
 #define THROTTLE_MID    0x00
 #define THROTTLE_RUN    0x01
 #define THROTTLE_CHOKE  0x02
