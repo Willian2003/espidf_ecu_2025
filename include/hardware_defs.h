@@ -3,7 +3,7 @@
 
 
 /* pinout definitions */
-// LEDS
+// LEDS c c c    v
 #define EMBEDDED_LED 2 // Turned on on failiure
 
 // SD
@@ -11,7 +11,7 @@
 
 // CAN PINS
 #define CAN_CS 4
-#define CAN_INTERRUPT 2
+#define CAN_INTERRUPT 26
 
 // SPI BUS
 // VSPI

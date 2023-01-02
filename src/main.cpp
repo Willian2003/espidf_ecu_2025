@@ -39,6 +39,10 @@ void setup()
   pinConfig();           // Hardware and Interrupt Config
   taskSetup();           // Tasks
   setupVolatilePacket(); // volatile packet default values
+
+  Serial.begin(115200);
+
+
 }
 
 void loop() {}
@@ -47,9 +51,9 @@ void loop() {}
 
 void taskSetup()
 {
-  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 512, NULL, 5, NULL, 0);
+  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
   // This state machine is responsible for the Basic CAN logging
-  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 512, NULL, 5, NULL, 1);
+  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
   // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
 
   /* xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
@@ -82,7 +86,7 @@ void SdStateMachine(void *pvParameters)
     case CAN_STATE:
 
       canFilter();
-
+    
       l_state = IDLE;
       attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
       break;
@@ -90,6 +94,8 @@ void SdStateMachine(void *pvParameters)
     default:
       break;
     }
+      vTaskDelay(1);
+
   }
 }
 
@@ -98,12 +104,17 @@ void sdConfig()
   if (!SD.begin(SD_CS))
   {
     digitalWrite(EMBEDDED_LED, HIGH);
-    while (1)
-      ;
+    while (1){
+        Serial.printf("vapo");
+
+    }
+      
   }
   root = SD.open("/");
   int num_files = countFiles(root);
   sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+
+  Serial.printf("func");
 }
 
 void pinConfig()
@@ -248,4 +259,8 @@ void canFilter()
     }
   }
 
-  void ConnStateMachine(void *pvParameters){}
+  void ConnStateMachine(void *pvParameters){
+
+    while(1)
+    {vTaskDelay(1);}
+  }
