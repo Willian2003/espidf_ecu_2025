@@ -2,11 +2,33 @@
 #include <FS.h>
 #include <SD.h>
 #include <SPI.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <ArduinoJson.h>
 #include "hardware_defs.h"
 #include "can_defs.h"
 #include "mcp2515_can.h"
 #include "software_definitions.h"
 #include "saving.h"
+#include "gprs_defs.h"
+
+// GPRS credentials
+const char apn[] = "claro.com.br"; // APN
+const char gprsUser[] = "claro";   // User
+const char gprsPass[] = "claro";   // Password
+const char simPIN[] = "";          // SIM card PIN code, if any
+const char *server = "64.227.19.172";
+char msg[MSG_BUFFER_SIZE];
+char payload_char[MSG_BUFFER_SIZE];
+
+// Define timeout time in milliseconds (example: 2000ms = 2s)
+const long timeoutTime = 2000;
+
+// ESP hotspot definitions
+const char *host = "esp32";                 // Here's your "host device name"
+const char *ESP_ssid = "Mangue_Baja_DEV";       // Here's your ESP32 WIFI ssid
+const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -22,6 +44,9 @@ String packetToString();
 void IRAM_ATTR can_ISR();
 void sdSave();
 void canFilter();
+void gsmReconnect();
+void publishPacket();
+void gsmCallback(char *topic, byte *payload, unsigned int length);
 
 // State Machines
 void SdStateMachine(void *pvParameters);
@@ -122,6 +147,8 @@ void pinConfig()
   // Pins
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
+  pinMode(MODEM_RST, OUTPUT);
+  digitalWrite(MODEM_RST, HIGH);
 
   // Interruptions
   attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
@@ -256,11 +283,175 @@ void canFilter()
       {
         memcpy(&volatile_packet.imu_dps,(imu_dps_t*) messageData, len);
       }
+      if (messageId == CVT_ID)
+      {
+        memcpy(&volatile_packet.cvt,(uint16_t*) messageData, len);
+      }
+      if (messageId == LAT_ID)
+      {
+        memcpy(&volatile_packet.latitude,(uint16_t*) messageData, len);
+      }
+      if (messageId == LNG_ID)
+      {
+        memcpy(&volatile_packet.longitude,(uint16_t*) messageData, len);
+      }
+      if (messageId == SOC_ID)
+      {
+        memcpy(&volatile_packet.soc,(uint8_t*) messageData, len);
+      }
+      if (messageId == VOLT_ID)
+      {
+        memcpy(&volatile_packet.volt,(uint8_t*) messageData, len);
+      }
     }
   }
 
-  void ConnStateMachine(void *pvParameters){
+void ConnStateMachine(void *pvParameters)
+{
+  // To skip it, call init() instead of restart()
+  Serial.println("Initializing modem...");
+  modem.restart();
+  // Or, use modem.init() if you don't need the complete restart
+
+  String modemInfo = modem.getModemInfo();
+  Serial.print("Modem: ");
+  Serial.println(modemInfo);
+
+  // Unlock your SIM card with a PIN if needed
+  if (strlen(simPIN) && modem.getSimStatus() != 3)
+  {
+    modem.simUnlock(simPIN);
+  }
+
+  Serial.print("Waiting for network...");
+  if (!modem.waitForNetwork(240000L))
+  {
+    Serial.println(" fail");
+    delay(10000);
+    return;
+  }
+  Serial.println(" OK");
+
+  if (modem.isNetworkConnected())
+  {
+    Serial.println("Network connected");
+  }
+
+  Serial.print(F("Connecting to APN: "));
+  Serial.print(apn);
+  if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+  {
+    Serial.println(" fail");
+    delay(10000);
+    return;
+  }
+  Serial.println(" OK");
+
+  // Wi-Fi Config and Debug
+  WiFi.mode(WIFI_MODE_AP);
+  WiFi.softAP(ESP_ssid, ESP_password);
+
+  if (!MDNS.begin(host)) // Use MDNS to solve DNS
+  {
+    // http://esp32.local
+    Serial.println("Error configuring mDNS. Rebooting in 1s...");
+    delay(1000);
+    ESP.restart();
+  }
+  Serial.println("mDNS configured;");
+
+  mqttClient.setServer(server, PORT);
+  mqttClient.setCallback(gsmCallback);
+
+  Serial.println("Ready");
+  Serial.print("SoftAP IP address: ");
+  Serial.println(WiFi.softAPIP());
 
     while(1)
-    {vTaskDelay(1);}
+    {
+      if (!mqttClient.connected())
+      {
+        gsmReconnect();
+      }
+
+      publishPacket();
+
+      mqttClient.loop();
+      vTaskDelay(1);
+    }
   }
+
+/* GPRS Functions */
+
+void gsmCallback(char *topic, byte *payload, unsigned int length)
+{
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+
+  memset(payload_char, 0, sizeof(payload_char));
+
+  for (int i = 0; i < length; i++)
+  {
+    Serial.print((char)payload[i]);
+    payload_char[i] = (char)payload[i];
+  }
+  Serial.println();
+}
+
+
+void gsmReconnect()
+{
+  int count = 0;
+  //Serial.println("Conecting to MQTT Broker...");
+  while (!mqttClient.connected() && count < 3)
+  {
+    count++;
+    //Serial.println("Reconecting to MQTT Broker..");
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+
+    if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
+    {
+      sprintf(msg, "%s", "Online");
+      mqttClient.publish("/esp-connected", msg);
+      memset(msg, 0, sizeof(msg));
+      //Serial.println("Connected.");
+      
+      /* Subscribe to topics */
+      mqttClient.subscribe("/esp-test");
+      digitalWrite(LED_BUILTIN, HIGH);
+    }
+    else
+    {
+      //Serial.print("Failed with state");
+      //Serial.println(mqttClient.state());
+      delay(2000);
+    }
+  }
+}
+
+void publishPacket()
+{
+  StaticJsonDocument<300> doc;
+
+  doc["accx"] = volatile_packet.imu_acc.acc_x;
+  doc["accy"] = volatile_packet.imu_acc.acc_y;
+  doc["accz"] = volatile_packet.imu_acc.acc_z;
+  doc["rpm"] = volatile_packet.rpm;
+  doc["speed"] = volatile_packet.speed;
+  doc["motor"] = volatile_packet.temperature;
+  doc["flags"] = volatile_packet.flags;
+  doc["soc"] = volatile_packet.soc;
+  doc["cvt"] = volatile_packet.cvt;
+  doc["volt"] = volatile_packet.volt;
+  doc["latitude"] = volatile_packet.latitude;
+  doc["longitude"] = volatile_packet.longitude;
+  doc["timestamp"] = volatile_packet.timestamp;
+
+  memset(msg, 0, sizeof(msg));
+  serializeJson(doc, msg);
+  mqttClient.publish("/logging", msg);
+
+  delay(2000);
+}

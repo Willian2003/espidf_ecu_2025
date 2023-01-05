@@ -19,5 +19,7 @@
 #define MOSI 23
 #define SCK 18
 
+//GPRS
+#define MODEM_RST 33
 
 #endif

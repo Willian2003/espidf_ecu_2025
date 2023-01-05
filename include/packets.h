@@ -25,6 +25,11 @@ typedef struct
     uint16_t speed;
     uint8_t temperature;
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
+    uint8_t soc;
+    uint16_t cvt;
+    uint8_t volt;
+    uint16_t latitude;
+    uint16_t longitude;
     uint32_t timestamp;
 
 } packet_t;
