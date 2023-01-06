@@ -135,7 +135,7 @@ void sdConfig()
   {
     digitalWrite(EMBEDDED_LED, HIGH);
     while (1){
-        Serial.printf("vapo");
+        //Serial.printf("vapo");
 
     }
       
@@ -144,7 +144,7 @@ void sdConfig()
   int num_files = countFiles(root);
   sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
 
-  Serial.printf("func");
+  //Serial.printf("func");
 }
 
 void pinConfig()
@@ -314,13 +314,13 @@ void canFilter()
 void ConnStateMachine(void *pvParameters)
 {
   // To skip it, call init() instead of restart()
-  Serial.println("Initializing modem...");
+  //Serial.println("Initializing modem...");
   modem.restart();
   // Or, use modem.init() if you don't need the complete restart
 
   String modemInfo = modem.getModemInfo();
-  Serial.print("Modem: ");
-  Serial.println(modemInfo);
+  //Serial.print("Modem: ");
+  //Serial.println(modemInfo);
 
   // Unlock your SIM card with a PIN if needed
   if (strlen(simPIN) && modem.getSimStatus() != 3)
@@ -328,29 +328,29 @@ void ConnStateMachine(void *pvParameters)
     modem.simUnlock(simPIN);
   }
 
-  Serial.print("Waiting for network...");
+  //Serial.print("Waiting for network...");
   if (!modem.waitForNetwork(240000L))
   {
-    Serial.println(" fail");
+    //Serial.println(" fail");
     delay(10000);
     return;
   }
-  Serial.println(" OK");
+  //Serial.println(" OK");
 
   if (modem.isNetworkConnected())
   {
     Serial.println("Network connected");
   }
 
-  Serial.print(F("Connecting to APN: "));
-  Serial.print(apn);
+  //Serial.print(F("Connecting to APN: "));
+  //Serial.print(apn);
   if (!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
-    Serial.println(" fail");
+    //Serial.println(" fail");
     delay(10000);
     return;
   }
-  Serial.println(" OK");
+  //Serial.println(" OK");
 
   // Wi-Fi Config and Debug
   WiFi.mode(WIFI_MODE_AP);
@@ -359,18 +359,18 @@ void ConnStateMachine(void *pvParameters)
   if (!MDNS.begin(host)) // Use MDNS to solve DNS
   {
     // http://esp32.local
-    Serial.println("Error configuring mDNS. Rebooting in 1s...");
+    //Serial.println("Error configuring mDNS. Rebooting in 1s...");
     delay(1000);
     ESP.restart();
   }
-  Serial.println("mDNS configured;");
+  //Serial.println("mDNS configured;");
 
   mqttClient.setServer(server, PORT);
   mqttClient.setCallback(gsmCallback);
 
-  Serial.println("Ready");
-  Serial.print("SoftAP IP address: ");
-  Serial.println(WiFi.softAPIP());
+  //Serial.println("Ready");
+  //Serial.print("SoftAP IP address: ");
+  //Serial.println(WiFi.softAPIP());
 
     while(1)
     {
