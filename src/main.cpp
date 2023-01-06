@@ -173,6 +173,10 @@ void setupVolatilePacket()
   volatile_packet.rpm = 0;
   volatile_packet.speed = 0;
   volatile_packet.temperature = 0;
+  volatile_packet.cvt = 0;
+  volatile_packet.volt = 0;
+  volatile_packet.latitude = 0;
+  volatile_packet.longitude = 0;
   volatile_packet.flags = 0;
   volatile_packet.timestamp = 0;
 }
