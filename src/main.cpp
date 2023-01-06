@@ -6,12 +6,16 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
+#include <TinyGPSPlus.h>
 #include "hardware_defs.h"
 #include "can_defs.h"
 #include "mcp2515_can.h"
 #include "software_definitions.h"
 #include "saving.h"
 #include "gprs_defs.h"
+
+HardwareSerial neogps(1);
+TinyGPSPlus gps;
 
 // GPRS credentials
 const char apn[] = "claro.com.br"; // APN
@@ -23,7 +27,7 @@ char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds (example: 2000ms = 2s)
-const long timeoutTime = 2000;
+const long timeoutTime = 1000;
 
 // ESP hotspot definitions
 const char *host = "esp32";                 // Here's your "host device name"
@@ -66,6 +70,7 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
 
   Serial.begin(115200);
+  neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
 
 
 }
@@ -376,6 +381,18 @@ void ConnStateMachine(void *pvParameters)
 
       publishPacket();
 
+      for (unsigned long start = millis(); millis() - start < timeoutTime;)
+      {
+        while (neogps.available())
+        {
+          if (gps.encode(neogps.read()))
+          {
+            volatile_packet.latitude = gps.location.lat();
+            volatile_packet.longitude = gps.location.lng();
+          }
+        }
+      }
+
       mqttClient.loop();
       vTaskDelay(1);
     }
@@ -452,6 +469,4 @@ void publishPacket()
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
   mqttClient.publish("/logging", msg);
-
-  delay(2000);
 }

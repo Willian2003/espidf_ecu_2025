@@ -22,4 +22,8 @@
 //GPRS
 #define MODEM_RST 33
 
+//GPS
+#define GPSTX 12
+#define GPSRX 13
+
 #endif
