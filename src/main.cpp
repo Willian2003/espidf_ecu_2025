@@ -204,6 +204,12 @@ String packetToString()
   dataString += ",";
   dataString += String(volatile_packet.temperature);
   dataString += ",";
+  dataString += String(volatile_packet.soc);
+  dataString += ",";
+  dataString += String(volatile_packet.cvt);
+  dataString += ",";
+  dataString += String(volatile_packet.volt);
+  dataString += ",";
   dataString += String(volatile_packet.flags);
   dataString += ",";
   dataString += String(volatile_packet.timestamp);
