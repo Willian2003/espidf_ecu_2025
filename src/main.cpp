@@ -28,6 +28,7 @@ char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 1000;
+bool flagCANInit = false;
 
 // ESP hotspot definitions
 const char *host = "esp32";                 // Here's your "host device name"
@@ -74,7 +75,23 @@ void setup()
   SerialAT.begin(115200);
   neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
 
-
+  unsigned long tcanStart = 0, cantimeOut = 0;
+  tcanStart = millis();
+  cantimeOut = 1000; //(1 segundo)
+  //aguarda incializar o shield CAN
+  Serial.println("Connecting CAN...");
+  while((millis() - tcanStart) < cantimeOut){ //aguarda o timeout
+    if(CAN_OK == CAN.begin(CAN_500KBPS, MCP_8MHz)){
+      Serial.println("CAN init ok!!!");
+      flagCANInit = true; //marca a flag q indica q inicialização correta da CAN  
+      break; //sai do laço 
+    }
+    flagCANInit = false; //marca a flag q indica q houve problema na inicialização da CAN
+  }
+  //se houve erro na CAN mostra 
+  if(flagCANInit == false){
+    Serial.println("CAN error!!!");
+  }
 }
 
 void loop() {}
@@ -94,6 +111,8 @@ void taskSetup()
 
 void SdStateMachine(void *pvParameters)
 {
+
+  
 
   while (1)
   {
