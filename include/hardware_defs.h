@@ -5,13 +5,14 @@
 /* pinout definitions */
 // LEDS c c c    v
 #define EMBEDDED_LED 2 // Turned on on failiure
+#define DEBUG_LED 15
 
 // SD
 #define SD_CS 5 
 
 // CAN PINS
 #define CAN_CS 4
-#define CAN_INTERRUPT 26
+#define CAN_INTERRUPT 22
 
 // SPI BUS
 // VSPI

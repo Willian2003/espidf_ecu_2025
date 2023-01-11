@@ -37,6 +37,7 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
 int num_files = 0;
+bool mode = false;
 
 // Function declarations
 int countFiles(File dir);
@@ -70,6 +71,7 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
 
   Serial.begin(115200);
+  SerialAT.begin(115200);
   neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
 
 
@@ -93,7 +95,6 @@ void taskSetup()
 void SdStateMachine(void *pvParameters)
 {
 
-  sdConfig(); // Opens CSV file
   while (1)
   {
     switch (l_state)
@@ -108,6 +109,7 @@ void SdStateMachine(void *pvParameters)
 
     case SAVE:
 
+      sdConfig(); // Opens CSV file
       sdSave();
 
       l_state = IDLE;
@@ -134,11 +136,7 @@ void sdConfig()
   if (!SD.begin(SD_CS))
   {
     digitalWrite(EMBEDDED_LED, HIGH);
-    while (1){
-        //Serial.printf("vapo");
-
-    }
-      
+    return;
   }
   root = SD.open("/");
   int num_files = countFiles(root);
@@ -151,6 +149,7 @@ void pinConfig()
 {
   // Pins
   pinMode(EMBEDDED_LED, OUTPUT);
+  pinMode(DEBUG_LED, OUTPUT);
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   pinMode(MODEM_RST, OUTPUT);
   digitalWrite(MODEM_RST, HIGH);
@@ -262,7 +261,8 @@ void IRAM_ATTR can_ISR()
 
 void canFilter()
 {
-  
+  mode = !mode;
+  digitalWrite(DEBUG_LED, mode);
     while (CAN_MSGAVAIL == CAN.checkReceive())
     {
       byte messageData[8];
@@ -324,13 +324,13 @@ void canFilter()
 void ConnStateMachine(void *pvParameters)
 {
   // To skip it, call init() instead of restart()
-  //Serial.println("Initializing modem...");
+  Serial.println("Initializing modem...");
   modem.restart();
   // Or, use modem.init() if you don't need the complete restart
 
   String modemInfo = modem.getModemInfo();
-  //Serial.print("Modem: ");
-  //Serial.println(modemInfo);
+  Serial.print("Modem: ");
+  Serial.println(modemInfo);
 
   // Unlock your SIM card with a PIN if needed
   if (strlen(simPIN) && modem.getSimStatus() != 3)
@@ -338,29 +338,29 @@ void ConnStateMachine(void *pvParameters)
     modem.simUnlock(simPIN);
   }
 
-  //Serial.print("Waiting for network...");
+  Serial.print("Waiting for network...");
   if (!modem.waitForNetwork(240000L))
   {
-    //Serial.println(" fail");
+    Serial.println(" fail");
     delay(10000);
     return;
   }
-  //Serial.println(" OK");
+  Serial.println(" OK");
 
   if (modem.isNetworkConnected())
   {
     Serial.println("Network connected");
   }
 
-  //Serial.print(F("Connecting to APN: "));
-  //Serial.print(apn);
+  Serial.print(F("Connecting to APN: "));
+  Serial.print(apn);
   if (!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
-    //Serial.println(" fail");
+    Serial.println(" fail");
     delay(10000);
     return;
   }
-  //Serial.println(" OK");
+  Serial.println(" OK");
 
   // Wi-Fi Config and Debug
   WiFi.mode(WIFI_MODE_AP);
@@ -369,18 +369,18 @@ void ConnStateMachine(void *pvParameters)
   if (!MDNS.begin(host)) // Use MDNS to solve DNS
   {
     // http://esp32.local
-    //Serial.println("Error configuring mDNS. Rebooting in 1s...");
+    Serial.println("Error configuring mDNS. Rebooting in 1s...");
     delay(1000);
     ESP.restart();
   }
-  //Serial.println("mDNS configured;");
+  Serial.println("mDNS configured;");
 
   mqttClient.setServer(server, PORT);
   mqttClient.setCallback(gsmCallback);
 
-  //Serial.println("Ready");
-  //Serial.print("SoftAP IP address: ");
-  //Serial.println(WiFi.softAPIP());
+  Serial.println("Ready");
+  Serial.print("SoftAP IP address: ");
+  Serial.println(WiFi.softAPIP());
 
     while(1)
     {
@@ -430,11 +430,11 @@ void gsmCallback(char *topic, byte *payload, unsigned int length)
 void gsmReconnect()
 {
   int count = 0;
-  //Serial.println("Conecting to MQTT Broker...");
+  Serial.println("Conecting to MQTT Broker...");
   while (!mqttClient.connected() && count < 3)
   {
     count++;
-    //Serial.println("Reconecting to MQTT Broker..");
+    Serial.println("Reconecting to MQTT Broker..");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
 
@@ -443,7 +443,7 @@ void gsmReconnect()
       sprintf(msg, "%s", "Online");
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
-      //Serial.println("Connected.");
+      Serial.println("Connected.");
       
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -451,8 +451,8 @@ void gsmReconnect()
     }
     else
     {
-      //Serial.print("Failed with state");
-      //Serial.println(mqttClient.state());
+      Serial.print("Failed with state");
+      Serial.println(mqttClient.state());
       delay(2000);
     }
   }
