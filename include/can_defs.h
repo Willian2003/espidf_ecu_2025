@@ -16,8 +16,8 @@
 #define RPM_ID          0x304       // 4by = rpm + timestamp
 #define TEMPERATURE_ID  0x400       // 4by = engine temp. + timestamp
 #define CVT_ID          0x401       // 4by = cvt temp. + timestamp
-#define SOC_ID          0x402       // 4by = state of charge + timestamp
-#define VOLT_ID         0x403       // 4by = voltage + timestamp
+#define SOC_ID          0x302       // 4by = state of charge + timestamp
+#define VOLT_ID         0x502       // 4by = voltage + timestamp
 #define FUEL_ID         0x500       // 3by = fuel level + timestamp
 #define LAT_ID          0x600       // 1by
 #define LNG_ID          0x700       // 1by
