@@ -91,6 +91,7 @@ void setup()
   //se houve erro na CAN mostra 
   if(flagCANInit == false){
     Serial.println("CAN error!!!");
+
   }
 }
 
@@ -112,7 +113,7 @@ void taskSetup()
 void SdStateMachine(void *pvParameters)
 {
 
-  
+  //sdConfig();
 
   while (1)
   {
@@ -128,8 +129,7 @@ void SdStateMachine(void *pvParameters)
 
     case SAVE:
 
-      sdConfig(); // Opens CSV file
-      sdSave();
+      sdConfig();
 
       l_state = IDLE;
       break;
@@ -152,15 +152,20 @@ void SdStateMachine(void *pvParameters)
 
 void sdConfig()
 {
-  if (!SD.begin(SD_CS))
+  if (!mounted) {
+    if (!SD.begin(SD_CS))
   {
     digitalWrite(EMBEDDED_LED, HIGH);
     return;
-  }
+    }
+
   root = SD.open("/");
   int num_files = countFiles(root);
   sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+  mounted=true;
 
+  }
+  sdSave();
   //Serial.printf("func");
 }
 
@@ -237,7 +242,7 @@ String packetToString()
 
 void sdSave()
 {
-  File dataFile = SD.open(file_name, FILE_APPEND);
+  dataFile = SD.open(file_name, FILE_APPEND);
 
   if (dataFile)
   {
@@ -248,6 +253,7 @@ void sdSave()
   else
   {
     digitalWrite(EMBEDDED_LED, HIGH);
+    Serial.println("falha no save");
   }
 }
 

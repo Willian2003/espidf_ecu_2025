@@ -13,5 +13,8 @@
 
 char file_name[20];
 File root;
+File dataFile;
+
+bool mounted=false;
 
 #endif
