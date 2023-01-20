@@ -61,8 +61,13 @@ void ConnStateMachine(void *pvParameters);
 // Can flag
 boolean canReady = false;
 
+ bool dbgLed = true;
+
+
 void setup()
 {
+
+  // debug led var
 
   timer = millis();
 
@@ -282,6 +287,8 @@ void IRAM_ATTR can_ISR()
 {
   detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
   l_state = CAN_STATE;
+  digitalWrite(DEBUG_LED, dbgLed);
+  dbgLed = !dbgLed;
 }
 
 void canFilter()
