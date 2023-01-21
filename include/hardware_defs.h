@@ -5,7 +5,7 @@
 /* pinout definitions */
 // LEDS c c c    v
 #define EMBEDDED_LED 2 // Turned on on failiure
-#define DEBUG_LED 15
+#define DEBUG_LED 25
 
 // SD
 #define SD_CS 5 
@@ -21,10 +21,10 @@
 #define SCK 18
 
 //GPRS
-#define MODEM_RST 33
+#define MODEM_RST 
 
 //GPS
-#define GPSTX 12
-#define GPSRX 13
+#define GPSTX 32
+#define GPSRX 33
 
 #endif

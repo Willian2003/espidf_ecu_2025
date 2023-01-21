@@ -28,11 +28,11 @@ char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 1000;
-bool flagCANInit = false;
+boolean flagCANInit = false;
 
 // ESP hotspot definitions
-const char *host = "esp32";                 // Here's your "host device name"
-const char *ESP_ssid = "Mangue_Baja_DEV";       // Here's your ESP32 WIFI ssid
+const char *host = "esp32";                   // Here's your "host device name"
+const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
 const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // vars do timer millis que determina o intervalo entre medidas
@@ -59,10 +59,9 @@ void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 
 // Can flag
-boolean canReady = false;
+bool canReady = false;
 
- bool dbgLed = true;
-
+bool dbgLed = true;
 
 void setup()
 {
@@ -79,25 +78,6 @@ void setup()
   Serial.begin(115200);
   SerialAT.begin(115200);
   neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
-
-  unsigned long tcanStart = 0, cantimeOut = 0;
-  tcanStart = millis();
-  cantimeOut = 1000; //(1 segundo)
-  //aguarda incializar o shield CAN
-  Serial.println("Connecting CAN...");
-  while((millis() - tcanStart) < cantimeOut){ //aguarda o timeout
-    if(CAN_OK == CAN.begin(CAN_500KBPS, MCP_8MHz)){
-      Serial.println("CAN init ok!!!");
-      flagCANInit = true; //marca a flag q indica q inicialização correta da CAN  
-      break; //sai do laço 
-    }
-    flagCANInit = false; //marca a flag q indica q houve problema na inicialização da CAN
-  }
-  //se houve erro na CAN mostra 
-  if(flagCANInit == false){
-    Serial.println("CAN error!!!");
-
-  }
 }
 
 void loop() {}
@@ -110,15 +90,39 @@ void taskSetup()
   // This state machine is responsible for the Basic CAN logging
   xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
   // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
-
-  /* xTaskCreate(TaskCANFilter, "CAN_task", 512, NULL, 5, NULL); // CAN interruption
-  xTaskCreate(TaskSave, "SD_task", 512, NULL, 4, NULL);       // SD ticker */
 }
 
 void SdStateMachine(void *pvParameters)
 {
 
-  //sdConfig();
+  //delay(2000);
+
+  unsigned long tcanStart = 0, cantimeOut = 0;
+  tcanStart = millis();
+  cantimeOut = 1000; //(1 segundo)
+  // aguarda incializar o shield CAN
+
+  Serial.println("Connecting CAN...");
+  while ((millis() - tcanStart) < cantimeOut)
+  { // aguarda o timeout
+    if (CAN_OK == CAN.begin(CAN_1000KBPS, MCP_16MHz))
+    {
+      Serial.println("CAN init ok!!!");
+      flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
+      digitalWrite(EMBEDDED_LED, HIGH);
+      break;              // sai do laço
+    }
+    flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
+  }
+  // se houve erro na CAN mostra
+  if (!flagCANInit)
+  {
+    Serial.println("CAN error!!!");
+    delay(1000);
+    esp_restart();
+  }
+
+  // sdConfig();
 
   while (1)
   {
@@ -142,7 +146,7 @@ void SdStateMachine(void *pvParameters)
     case CAN_STATE:
 
       canFilter();
-    
+
       l_state = IDLE;
       attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
       break;
@@ -150,28 +154,27 @@ void SdStateMachine(void *pvParameters)
     default:
       break;
     }
-      vTaskDelay(1);
-
+    vTaskDelay(1);
   }
 }
 
 void sdConfig()
 {
-  if (!mounted) {
-    if (!SD.begin(SD_CS))
+  if (!mounted)
   {
-    digitalWrite(EMBEDDED_LED, HIGH);
-    return;
+    if (!SD.begin(SD_CS))
+    {
+      //digitalWrite(EMBEDDED_LED, HIGH);
+      return;
     }
 
-  root = SD.open("/");
-  int num_files = countFiles(root);
-  sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
-  mounted=true;
-
+    root = SD.open("/");
+    int num_files = countFiles(root);
+    sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+    mounted = true;
   }
   sdSave();
-  //Serial.printf("func");
+  // Serial.printf("func");
 }
 
 void pinConfig()
@@ -180,8 +183,8 @@ void pinConfig()
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
-  pinMode(MODEM_RST, OUTPUT);
-  digitalWrite(MODEM_RST, HIGH);
+  //pinMode(MODEM_RST, OUTPUT);
+  //digitalWrite(MODEM_RST, HIGH);
 
   // Interruptions
   attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
@@ -293,75 +296,76 @@ void IRAM_ATTR can_ISR()
 
 void canFilter()
 {
+
   mode = !mode;
   digitalWrite(DEBUG_LED, mode);
-    while (CAN_MSGAVAIL == CAN.checkReceive())
+  while (CAN_MSGAVAIL == CAN.checkReceive())
+  {
+    byte messageData[8];
+    uint32_t messageId;
+    unsigned char len = 0;
+
+    CAN.readMsgBuf(&len, messageData); // Reads message
+    messageId = CAN.getCanId();
+
+    volatile_packet.timestamp = millis();
+
+    if (messageId == RPM_ID)
     {
-      byte messageData[8];
-      uint32_t messageId;
-      unsigned char len = 0;
-
-      CAN.readMsgBuf(&len, messageData); // Reads message
-      messageId = CAN.getCanId();
-
-      volatile_packet.timestamp = millis();
-
-      if (messageId == RPM_ID)
-      {
-        mempcpy(&volatile_packet.rpm, (uint16_t*)messageData, len);
-      }
-      if (messageId == SPEED_ID)
-      {
-        mempcpy(&volatile_packet.speed, (uint16_t*)messageData, len);
-      }
-      if (messageId == TEMPERATURE_ID)
-      {
-        mempcpy(&volatile_packet.temperature, (uint8_t*)messageData, len);
-      }
-      if (messageId == FLAGS_ID)
-      {
-        mempcpy(&volatile_packet.flags, (uint8_t*)messageData, len);
-      }
-      if (messageId == IMU_ACC_ID)
-      {
-        memcpy(&volatile_packet.imu_acc,(imu_acc_t*) messageData, len);
-      }
-      if (messageId == IMU_DPS_ID)
-      {
-        memcpy(&volatile_packet.imu_dps,(imu_dps_t*) messageData, len);
-      }
-      if (messageId == CVT_ID)
-      {
-        memcpy(&volatile_packet.cvt,(uint16_t*) messageData, len);
-      }
-      if (messageId == LAT_ID)
-      {
-        memcpy(&volatile_packet.latitude,(uint16_t*) messageData, len);
-      }
-      if (messageId == LNG_ID)
-      {
-        memcpy(&volatile_packet.longitude,(uint16_t*) messageData, len);
-      }
-      if (messageId == SOC_ID)
-      {
-        memcpy(&volatile_packet.soc,(uint8_t*) messageData, len);
-      }
-      if (messageId == VOLT_ID)
-      {
-        memcpy(&volatile_packet.volt,(uint8_t*) messageData, len);
-      }
+      mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
+    }
+    if (messageId == SPEED_ID)
+    {
+      mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
+    }
+    if (messageId == TEMPERATURE_ID)
+    {
+      mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
+    }
+    if (messageId == FLAGS_ID)
+    {
+      mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
+    }
+    if (messageId == IMU_ACC_ID)
+    {
+      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
+    }
+    if (messageId == IMU_DPS_ID)
+    {
+      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
+    }
+    if (messageId == CVT_ID)
+    {
+      memcpy(&volatile_packet.cvt, (uint16_t *)messageData, len);
+    }
+    if (messageId == LAT_ID)
+    {
+      memcpy(&volatile_packet.latitude, (uint16_t *)messageData, len);
+    }
+    if (messageId == LNG_ID)
+    {
+      memcpy(&volatile_packet.longitude, (uint16_t *)messageData, len);
+    }
+    if (messageId == SOC_ID)
+    {
+      memcpy(&volatile_packet.soc, (uint8_t *)messageData, len);
+    }
+    if (messageId == VOLT_ID)
+    {
+      memcpy(&volatile_packet.volt, (uint8_t *)messageData, len);
     }
   }
+}
 
 void ConnStateMachine(void *pvParameters)
 {
   // To skip it, call init() instead of restart()
-  Serial.println("Initializing modem...");
+  //Serial.println("Initializing modem...");
   modem.restart();
   // Or, use modem.init() if you don't need the complete restart
 
   String modemInfo = modem.getModemInfo();
-  Serial.print("Modem: ");
+  //Serial.print("Modem: ");
   Serial.println(modemInfo);
 
   // Unlock your SIM card with a PIN if needed
@@ -370,7 +374,7 @@ void ConnStateMachine(void *pvParameters)
     modem.simUnlock(simPIN);
   }
 
-  Serial.print("Waiting for network...");
+  //Serial.print("Waiting for network...");
   if (!modem.waitForNetwork(240000L))
   {
     Serial.println(" fail");
@@ -414,31 +418,31 @@ void ConnStateMachine(void *pvParameters)
   Serial.print("SoftAP IP address: ");
   Serial.println(WiFi.softAPIP());
 
-    while(1)
+  while (1)
+  {
+    if (!mqttClient.connected())
     {
-      if (!mqttClient.connected())
-      {
-        gsmReconnect();
-      }
+      gsmReconnect();
+    }
 
-      publishPacket();
+    publishPacket();
 
-      for (unsigned long start = millis(); millis() - start < timeoutTime;)
+    for (unsigned long start = millis(); millis() - start < timeoutTime;)
+    {
+      while (neogps.available())
       {
-        while (neogps.available())
+        if (gps.encode(neogps.read()))
         {
-          if (gps.encode(neogps.read()))
-          {
-            volatile_packet.latitude = gps.location.lat();
-            volatile_packet.longitude = gps.location.lng();
-          }
+          volatile_packet.latitude = gps.location.lat();
+          volatile_packet.longitude = gps.location.lng();
         }
       }
-
-      mqttClient.loop();
-      vTaskDelay(1);
     }
+
+    mqttClient.loop();
+    vTaskDelay(1);
   }
+}
 
 /* GPRS Functions */
 
@@ -458,7 +462,6 @@ void gsmCallback(char *topic, byte *payload, unsigned int length)
   Serial.println();
 }
 
-
 void gsmReconnect()
 {
   int count = 0;
@@ -476,7 +479,7 @@ void gsmReconnect()
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
-      
+
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
       digitalWrite(LED_BUILTIN, HIGH);
