@@ -13,9 +13,14 @@
 #include "software_definitions.h"
 #include "saving.h"
 #include "gprs_defs.h"
+#include <Ticker.h>
 
 HardwareSerial neogps(1);
 TinyGPSPlus gps;
+
+// SD var
+Ticker sdTicker;
+bool mounted = false; // SD mounted flag
 
 // GPRS credentials
 const char apn[] = "claro.com.br"; // APN
@@ -39,8 +44,10 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 int pulse_counter = 0;
 int num_files = 0;
 bool mode = false;
+bool saveFlag = false;
 
 // Function declarations
+void sdCallback();
 int countFiles(File dir);
 void pinConfig();
 void taskSetup();
@@ -66,18 +73,41 @@ bool dbgLed = true;
 void setup()
 {
 
-  // debug led var
-
-  timer = millis();
-
-  // Setup functions
-  pinConfig();           // Hardware and Interrupt Config
-  taskSetup();           // Tasks
-  setupVolatilePacket(); // volatile packet default values
-
   Serial.begin(115200);
   SerialAT.begin(115200);
   neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
+
+  // Setup functions
+  pinConfig(); // Hardware and Interrupt Config
+
+  unsigned long tcanStart = 0, cantimeOut = 0;
+  tcanStart = millis();
+  cantimeOut = 1000; //(1 segundo)
+  // aguarda incializar o shield CAN
+
+  Serial.println("Connecting CAN...");
+  while ((millis() - tcanStart) < cantimeOut)
+  { // aguarda o timeout
+    if (CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
+    {
+      Serial.println("CAN init ok!!!");
+      flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
+      digitalWrite(EMBEDDED_LED, HIGH);
+      break; // sai do laço
+    }
+    flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
+  }
+  // se houve erro na CAN mostra
+  if (!flagCANInit)
+  {
+    Serial.println("CAN error!!!");
+    delay(1000);
+    esp_restart();
+  }
+
+  setupVolatilePacket(); // volatile packet default values
+  taskSetup();           // Tasks
+  sdTicker.attach_ms(10, sdCallback);
 }
 
 void loop() {}
@@ -94,66 +124,13 @@ void taskSetup()
 
 void SdStateMachine(void *pvParameters)
 {
-
-  //delay(2000);
-
-  unsigned long tcanStart = 0, cantimeOut = 0;
-  tcanStart = millis();
-  cantimeOut = 1000; //(1 segundo)
-  // aguarda incializar o shield CAN
-
-  Serial.println("Connecting CAN...");
-  while ((millis() - tcanStart) < cantimeOut)
-  { // aguarda o timeout
-    if (CAN_OK == CAN.begin(CAN_1000KBPS, MCP_16MHz))
-    {
-      Serial.println("CAN init ok!!!");
-      flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
-      digitalWrite(EMBEDDED_LED, HIGH);
-      break;              // sai do laço
-    }
-    flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
-  }
-  // se houve erro na CAN mostra
-  if (!flagCANInit)
-  {
-    Serial.println("CAN error!!!");
-    delay(1000);
-    esp_restart();
-  }
-
-  // sdConfig();
-
   while (1)
   {
-    switch (l_state)
-    {
-    case IDLE:
-      if (millis() - timer > 5)
-      {
-        l_state = SAVE;
-        timer = millis();
-      }
-      break;
-
-    case SAVE:
-
+    if(saveFlag){
       sdConfig();
-
-      l_state = IDLE;
-      break;
-
-    case CAN_STATE:
-
-      canFilter();
-
-      l_state = IDLE;
-      attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
-      break;
-
-    default:
-      break;
+      saveFlag = false;
     }
+    canFilter();
     vTaskDelay(1);
   }
 }
@@ -164,7 +141,7 @@ void sdConfig()
   {
     if (!SD.begin(SD_CS))
     {
-      //digitalWrite(EMBEDDED_LED, HIGH);
+      // digitalWrite(EMBEDDED_LED, HIGH);
       return;
     }
 
@@ -183,11 +160,8 @@ void pinConfig()
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
-  //pinMode(MODEM_RST, OUTPUT);
-  //digitalWrite(MODEM_RST, HIGH);
-
-  // Interruptions
-  attachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT), can_ISR, FALLING);
+  // pinMode(MODEM_RST, OUTPUT);
+  // digitalWrite(MODEM_RST, HIGH);
   return;
 }
 
@@ -290,8 +264,6 @@ void IRAM_ATTR can_ISR()
 {
   detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
   l_state = CAN_STATE;
-  digitalWrite(DEBUG_LED, dbgLed);
-  dbgLed = !dbgLed;
 }
 
 void canFilter()
@@ -360,12 +332,12 @@ void canFilter()
 void ConnStateMachine(void *pvParameters)
 {
   // To skip it, call init() instead of restart()
-  //Serial.println("Initializing modem...");
+  Serial.println("Initializing modem...");
   modem.restart();
   // Or, use modem.init() if you don't need the complete restart
 
   String modemInfo = modem.getModemInfo();
-  //Serial.print("Modem: ");
+  Serial.print("Modem: ");
   Serial.println(modemInfo);
 
   // Unlock your SIM card with a PIN if needed
@@ -374,7 +346,7 @@ void ConnStateMachine(void *pvParameters)
     modem.simUnlock(simPIN);
   }
 
-  //Serial.print("Waiting for network...");
+  Serial.print("Waiting for network...");
   if (!modem.waitForNetwork(240000L))
   {
     Serial.println(" fail");
@@ -514,4 +486,8 @@ void publishPacket()
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
   mqttClient.publish("/logging", msg);
+}
+
+void sdCallback(){
+  saveFlag = true;
 }

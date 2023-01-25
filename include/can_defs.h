@@ -25,7 +25,7 @@
 // DEV DEFINITIONS
 
 #define MSG_QUEUE_LEN 5
-
+#define CAN_2515
 
 #include "mcp2515_can.h"
 
