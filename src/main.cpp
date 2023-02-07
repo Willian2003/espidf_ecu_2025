@@ -101,7 +101,6 @@ void setup()
   if (!flagCANInit)
   {
     Serial.println("CAN error!!!");
-    delay(1000);
   }
 
   setupVolatilePacket(); // volatile packet default values
