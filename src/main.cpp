@@ -23,10 +23,10 @@ Ticker sdTicker;
 bool mounted = false; // SD mounted flag
 
 // GPRS credentials
-const char apn[] = "claro.com.br"; // APN
-const char gprsUser[] = "claro";   // User
-const char gprsPass[] = "claro";   // Password
-const char simPIN[] = "";          // SIM card PIN code, if any
+const char apn[] = "datelo.nlt.br"; // Your APN
+const char gprsUser[] = "nlt";   // User
+const char gprsPass[] = "nlt";   // Password
+const char simPIN[] = "1291";          // SIM card PIN code, if any
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
@@ -74,8 +74,8 @@ void setup()
 {
 
   Serial.begin(115200);
-  SerialAT.begin(115200);
-  neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  //neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
 
   // Setup functions
   pinConfig(); // Hardware and Interrupt Config
@@ -102,12 +102,11 @@ void setup()
   {
     Serial.println("CAN error!!!");
     delay(1000);
-    esp_restart();
   }
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
-  sdTicker.attach_ms(10, sdCallback);
+  sdTicker.attach(1, sdCallback);
 }
 
 void loop() {}
