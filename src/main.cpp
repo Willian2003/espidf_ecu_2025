@@ -20,6 +20,7 @@ TinyGPSPlus gps;
 
 // SD var
 Ticker sdTicker;
+bool savingBlink = false;
 bool mounted = false; // SD mounted flag
 
 // GPRS credentials
@@ -92,7 +93,6 @@ void setup()
     {
       Serial.println("CAN init ok!!!");
       flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
-      digitalWrite(EMBEDDED_LED, HIGH);
       break; // sai do laço
     }
     flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
@@ -101,6 +101,7 @@ void setup()
   if (!flagCANInit)
   {
     Serial.println("CAN error!!!");
+    esp_restart();
   }
 
   setupVolatilePacket(); // volatile packet default values
@@ -139,7 +140,6 @@ void sdConfig()
   {
     if (!SD.begin(SD_CS))
     {
-      // digitalWrite(EMBEDDED_LED, HIGH);
       return;
     }
 
@@ -149,7 +149,6 @@ void sdConfig()
     mounted = true;
   }
   sdSave();
-  // Serial.printf("func");
 }
 
 void pinConfig()
@@ -228,6 +227,9 @@ void sdSave()
   {
     dataFile.println(packetToString());
     dataFile.close();
+    savingBlink = !savingBlink;
+    digitalWrite(EMBEDDED_LED, savingBlink);
+
   }
 
   else
