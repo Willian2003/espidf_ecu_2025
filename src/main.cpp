@@ -77,10 +77,9 @@ void setup()
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   //neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
-
-  // Setup functions
+  
   pinConfig(); // Hardware and Interrupt Config
-
+  
   unsigned long tcanStart = 0, cantimeOut = 0;
   tcanStart = millis();
   cantimeOut = 1000; //(1 segundo)
