@@ -27,16 +27,16 @@ bool mounted = false; // SD mounted flag
 const char apn[] = "datelo.nlt.br"; // Your APN
 const char gprsUser[] = "nlt";   // User
 const char gprsPass[] = "nlt";   // Password
-const char simPIN[] = "1291";          // SIM card PIN code, if any
+const char simPIN[] = "6214";          // SIM card PIN code, if any
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
-// Define timeout time in milliseconds (example: 2000ms = 2s)
+// Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
 boolean flagCANInit = false;
 
-// ESP hotspot definitions
+// ESP hotspot defini  tions
 const char *host = "esp32";                   // Here's your "host device name"
 const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
 const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
@@ -338,6 +338,10 @@ void ConnStateMachine(void *pvParameters)
   String modemInfo = modem.getModemInfo();
   Serial.print("Modem: ");
   Serial.println(modemInfo);
+
+  int modemstatus = modem.getSimStatus();
+  Serial.print("Status: ");
+  Serial.println(modemstatus);
 
   // Unlock your SIM card with a PIN if needed
   if (strlen(simPIN) && modem.getSimStatus() != 3)
