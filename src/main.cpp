@@ -32,7 +32,7 @@ const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
-bool mqttflag=false;
+bool mqttflag;
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
@@ -449,6 +449,7 @@ void gsmReconnect()
     Serial.println("Reconecting to MQTT Broker..");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
+    mqttflag=false;
 
     if (!mqttflag) {
         if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
@@ -477,11 +478,11 @@ void publishPacket()
 {
   StaticJsonDocument<300> doc;
 
-  doc["accx"] = volatile_packet.imu_acc.acc_x;
-  doc["accy"] = volatile_packet.imu_acc.acc_y;
-  doc["accz"] = volatile_packet.imu_acc.acc_z;
-  doc["rpm"] = volatile_packet.rpm;
-  doc["speed"] = volatile_packet.speed;
+  doc["accx"] = volatile_packet.imu_acc.acc_x*0.061/1000;
+  doc["accy"] = volatile_packet.imu_acc.acc_y*0.061/1000;
+  doc["accz"] = volatile_packet.imu_acc.acc_z*0.061/1000;
+  doc["rpm"] = volatile_packet.rpm*5000/65535;
+  doc["speed"] = volatile_packet.speed*5000/65535;
   doc["motor"] = volatile_packet.temperature;
   doc["flags"] = volatile_packet.flags;
   doc["soc"] = volatile_packet.soc;
