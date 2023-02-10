@@ -20,5 +20,4 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqttClient(client);
 
-
 #endif

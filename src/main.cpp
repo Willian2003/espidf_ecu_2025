@@ -32,6 +32,8 @@ const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
+bool mqttflag=false;
+
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
 boolean flagCANInit = false;
@@ -448,22 +450,25 @@ void gsmReconnect()
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
 
-    if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
-    {
-      sprintf(msg, "%s", "Online");
-      mqttClient.publish("/esp-connected", msg);
-      memset(msg, 0, sizeof(msg));
-      Serial.println("Connected.");
+    if (!mqttflag) {
+        if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
+      {
+        sprintf(msg, "%s", "Online");
+        mqttClient.publish("/esp-connected", msg);
+        memset(msg, 0, sizeof(msg));
+        Serial.println("Connected.");
+        mqttflag=true;
 
-      /* Subscribe to topics */
-      mqttClient.subscribe("/esp-test");
-      digitalWrite(LED_BUILTIN, HIGH);
-    }
-    else
-    {
-      Serial.print("Failed with state");
-      Serial.println(mqttClient.state());
-      delay(2000);
+        /* Subscribe to topics */
+        mqttClient.subscribe("/esp-test");
+        digitalWrite(LED_BUILTIN, HIGH);
+      }
+      else
+     {
+        Serial.print("Failed with state");
+        Serial.println(mqttClient.state());
+        delay(2000);
+      }
     }
   }
 }
@@ -491,6 +496,7 @@ void publishPacket()
   mqttClient.publish("/logging", msg);
 }
 
-void sdCallback(){
+void sdCallback() 
+{
   saveFlag = true;
 }
