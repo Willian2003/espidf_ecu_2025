@@ -32,7 +32,7 @@ const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
-bool mqtt_flag;
+bool mqttflag;
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
@@ -449,16 +449,14 @@ void gsmReconnect()
     Serial.println("Reconecting to MQTT Broker..");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
-    mqtt_flag=false;
 
-    if (!mqtt_flag) {
         if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
       {
         sprintf(msg, "%s", "Online");
         mqttClient.publish("/esp-connected", msg);
         memset(msg, 0, sizeof(msg));
         Serial.println("Connected.");
-        mqtt_flag=true;
+        mqttflag=true;
 
         /* Subscribe to topics */
         mqttClient.subscribe("/esp-test");
@@ -470,7 +468,7 @@ void gsmReconnect()
         Serial.println(mqttClient.state());
         delay(2000);
       }
-    }
+    
   }
 }
 
