@@ -471,8 +471,7 @@ void gsmReconnect()
         Serial.println(mqttClient.state());
         delay(2000);
       }
-    }
-    
+    }  
   }
 }
 
@@ -483,13 +482,13 @@ void publishPacket()
   doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000;
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
-  doc["rpm"] = (volatile_packet.rpm*5000)/65535;
-  doc["speed"] = volatile_packet.speed*5000/65535;
+  doc["rpm"] = (volatile_packet.rpm/65535)*5000;
+  doc["speed"] = (volatile_packet.speed/65535)*60;
   doc["motor"] = volatile_packet.temperature;
   doc["flags"] = volatile_packet.flags;
   doc["soc"] = volatile_packet.soc;
   doc["cvt"] = volatile_packet.cvt;
-  doc["volt"] = volatile_packet.volt;
+  doc["volt"] = (volatile_packet.volt);//caso os valores estejam errados divida por:65535 
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
   doc["timestamp"] = volatile_packet.timestamp;
