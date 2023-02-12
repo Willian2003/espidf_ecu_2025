@@ -27,7 +27,7 @@ typedef struct
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     uint8_t soc;
     uint16_t cvt;
-    double volt;
+    uint8_t volt;
     double latitude;
     double longitude;
     uint32_t timestamp;
