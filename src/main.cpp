@@ -483,7 +483,7 @@ void publishPacket()
   doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000;
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
-  doc["rpm"] = volatile_packet.rpm*5000/65535;
+  doc["rpm"] = (volatile_packet.rpm*5000)/65535;
   doc["speed"] = volatile_packet.speed*5000/65535;
   doc["motor"] = volatile_packet.temperature;
   doc["flags"] = volatile_packet.flags;
