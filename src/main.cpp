@@ -449,8 +449,11 @@ void gsmReconnect()
     Serial.println("Reconecting to MQTT Broker..");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
+    mqttflag=false;
 
-        if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
+    if (!mqttflag)
+    {
+      if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
       {
         sprintf(msg, "%s", "Online");
         mqttClient.publish("/esp-connected", msg);
@@ -468,6 +471,7 @@ void gsmReconnect()
         Serial.println(mqttClient.state());
         delay(2000);
       }
+    }
     
   }
 }
@@ -476,9 +480,9 @@ void publishPacket()
 {
   StaticJsonDocument<300> doc;
 
-  doc["accx"] = volatile_packet.imu_acc.acc_x*0.061/1000;
-  doc["accy"] = volatile_packet.imu_acc.acc_y*0.061/1000;
-  doc["accz"] = volatile_packet.imu_acc.acc_z*0.061/1000;
+  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
+  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000;
+  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
   doc["rpm"] = volatile_packet.rpm*5000/65535;
   doc["speed"] = volatile_packet.speed*5000/65535;
   doc["motor"] = volatile_packet.temperature;
