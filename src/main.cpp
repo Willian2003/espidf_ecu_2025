@@ -479,16 +479,16 @@ void publishPacket()
 {
   StaticJsonDocument<300> doc;
 
-  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000; //OK
-  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; //OK
-  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; //OK
-  doc["rpm"] = (volatile_packet.rpm*5000)/65535; //CALIBRAR
-  doc["speed"] = (volatile_packet.speed*60)/65535; //OK
-  doc["motor"] = volatile_packet.temperature; //OK
-  doc["flags"] = volatile_packet.flags; //OK
-  doc["soc"] = volatile_packet.soc; //OK
-  doc["cvt"] = volatile_packet.cvt; //OK
-  doc["volt"] = volatile_packet.volt; //OK 
+  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000; 
+  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
+  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
+  doc["rpm"] = (volatile_packet.rpm*5000)/65535; 
+  doc["speed"] = (volatile_packet.speed*60)/65535; 
+  doc["motor"] = volatile_packet.temperature; 
+  doc["flags"] = volatile_packet.flags; 
+  doc["soc"] = volatile_packet.soc; 
+  doc["cvt"] = volatile_packet.cvt; 
+  doc["volt"] = volatile_packet.volt;  
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
   doc["timestamp"] = volatile_packet.timestamp;
