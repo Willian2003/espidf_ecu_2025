@@ -471,8 +471,12 @@ void gsmReconnect()
         Serial.println(mqttClient.state());
         delay(2000);
       }
+<<<<<<< HEAD
     }
     
+=======
+    }  
+>>>>>>> 329f1366c6349acf1fd24d49e91e5c403b454be8
   }
 }
 
@@ -480,6 +484,7 @@ void publishPacket()
 {
   StaticJsonDocument<300> doc;
 
+<<<<<<< HEAD
   doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000;
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
@@ -490,6 +495,18 @@ void publishPacket()
   doc["soc"] = volatile_packet.soc;
   doc["cvt"] = volatile_packet.cvt;
   doc["volt"] = volatile_packet.volt;
+=======
+  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000; 
+  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
+  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
+  doc["rpm"] = (volatile_packet.rpm*5000)/65535; 
+  doc["speed"] = (volatile_packet.speed*60)/65535; 
+  doc["motor"] = volatile_packet.temperature; 
+  doc["flags"] = volatile_packet.flags; 
+  doc["soc"] = volatile_packet.soc; 
+  doc["cvt"] = volatile_packet.cvt; 
+  doc["volt"] = volatile_packet.volt;  
+>>>>>>> 329f1366c6349acf1fd24d49e91e5c403b454be8
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
   doc["timestamp"] = volatile_packet.timestamp;
