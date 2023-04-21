@@ -3,6 +3,7 @@
         "sd.h": "c",
         "*.tcc": "cpp",
         "fstream": "cpp",
-        "*.tpp": "cpp"
+        "*.tpp": "cpp",
+        "limits": "cpp"
     }
 }
