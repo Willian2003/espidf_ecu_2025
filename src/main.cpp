@@ -24,10 +24,17 @@ bool savingBlink = false;
 bool mounted = false; // SD mounted flag
 
 // GPRS credentials
-const char apn[] = "datelo.nlt.br"; // Your APN
-const char gprsUser[] = "nlt";   // User
-const char gprsPass[] = "nlt";   // Password
+const char apn[] = "datelo.nlt.br";    // Your APN
+const char gprsUser[] = "nlt";         // User
+const char gprsPass[] = "nlt";         // Password
 const char simPIN[] = "6214";          // SIM card PIN code, if any
+
+/*Configuração padrão da datelo*/
+/*const char apn[] = "datelo.nlt.br";    // Your APN
+const char gprsUser[] = "nlt";         // User
+const char gprsPass[] = "nlt";         // Password
+const char simPIN[] = "6214";          // SIM card PIN code, if any*/
+
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
@@ -68,7 +75,6 @@ void ConnStateMachine(void *pvParameters);
 
 // Can flag
 bool canReady = false;
-
 bool dbgLed = true;
 
 void setup()
@@ -185,36 +191,37 @@ void setupVolatilePacket()
 String packetToString()
 {
   String dataString = "";
-  // imu
-  dataString += String(volatile_packet.imu_acc.acc_x);
-  dataString += ",";
-  dataString += String(volatile_packet.imu_acc.acc_y);
-  dataString += ",";
-  dataString += String(volatile_packet.imu_acc.acc_z);
-  dataString += ",";
-  dataString += String(volatile_packet.imu_dps.dps_x);
-  dataString += ",";
-  dataString += String(volatile_packet.imu_dps.dps_y);
-  dataString += ",";
-  dataString += String(volatile_packet.imu_dps.dps_z);
+    // imu
+    dataString += String(volatile_packet.imu_acc.acc_x);
+    dataString += ",";
+    dataString += String(volatile_packet.imu_acc.acc_y);
+    dataString += ",";
+    dataString += String(volatile_packet.imu_acc.acc_z);
+    dataString += ",";
+    dataString += String(volatile_packet.imu_dps.dps_x);
+    dataString += ",";
+    dataString += String(volatile_packet.imu_dps.dps_y);
+    dataString += ",";
+    dataString += String(volatile_packet.imu_dps.dps_z);
 
-  dataString += ",";
-  dataString += String(volatile_packet.rpm);
-  dataString += ",";
-  dataString += String(volatile_packet.speed);
-  dataString += ",";
-  dataString += String(volatile_packet.temperature);
-  dataString += ",";
-  dataString += String(volatile_packet.soc);
-  dataString += ",";
-  dataString += String(volatile_packet.cvt);
-  dataString += ",";
-  dataString += String(volatile_packet.volt);
-  dataString += ",";
-  dataString += String(volatile_packet.flags);
-  dataString += ",";
-  dataString += String(volatile_packet.timestamp);
-  dataString += ",";
+    dataString += ",";
+    dataString += String(volatile_packet.rpm);
+    dataString += ",";
+    dataString += String(volatile_packet.speed);
+    dataString += ",";
+    dataString += String(volatile_packet.temperature);
+    dataString += ",";
+    dataString += String(volatile_packet.soc);
+    dataString += ",";
+    dataString += String(volatile_packet.cvt);
+    dataString += ",";
+    dataString += String(volatile_packet.volt);
+    dataString += ",";
+    dataString += String(volatile_packet.flags);
+    dataString += ",";
+    dataString += String(volatile_packet.timestamp);
+    dataString += ",";
+
   return dataString;
 }
 
@@ -255,6 +262,11 @@ int countFiles(File dir)
     entry.close();
   }
   return fileCountOnSD - 1;
+}
+
+void sdCallback() 
+{
+  saveFlag = true;
 }
 
 /* Can functions */
@@ -475,8 +487,8 @@ void publishPacket()
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
   //doc["rpm"] = (volatile_packet.rpm*5000)/65535;
-  doc["rpm"] = volatile_packet.rpm; 
-  doc["speed"] = (volatile_packet.speed*60)/65535; 
+  doc["rpm"] = volatile_packet.rpm;
+  doc["speed"] = (volatile_packet.speed*60)/65535; //chega em bytes
   doc["motor"] = volatile_packet.temperature; 
   doc["flags"] = volatile_packet.flags; 
   doc["soc"] = volatile_packet.soc; 
@@ -489,9 +501,4 @@ void publishPacket()
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
   mqttClient.publish("/logging", msg);
-}
-
-void sdCallback() 
-{
-  saveFlag = true;
 }
