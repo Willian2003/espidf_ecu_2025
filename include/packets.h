@@ -30,6 +30,7 @@ typedef struct
     double volt;
     double latitude;
     double longitude;
+    bool SOT; //State of Telemetry, only for electronic panel
     uint32_t timestamp;
 
 } packet_t;

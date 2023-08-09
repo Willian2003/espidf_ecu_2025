@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 /* State Machines */
-typedef enum{
+typedef enum {
     IDLE,
     SAVE,
     CAN_STATE,

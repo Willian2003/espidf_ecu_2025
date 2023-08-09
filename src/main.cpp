@@ -20,14 +20,15 @@ TinyGPSPlus gps;
 
 // SD var
 Ticker sdTicker;
+Ticker telemetry_state;
 bool savingBlink = false;
 bool mounted = false; // SD mounted flag
 
 // GPRS credentials
-const char apn[] = "datelo.nlt.br";    // Your APN
-const char gprsUser[] = "nlt";         // User
-const char gprsPass[] = "nlt";         // Password
-const char simPIN[] = "6214";          // SIM card PIN code, if any
+const char apn[] = "timbrasil.br";    // Your APN
+const char gprsUser[] = "tim";         // User
+const char gprsPass[] = "tim";         // Password
+const char simPIN[] = "1010";          // SIM card PIN code, if any
 
 /*Configuração padrão da datelo*/
 /*const char apn[] = "datelo.nlt.br";    // Your APN
@@ -54,6 +55,10 @@ int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
 
+// Can flag
+bool canReady = false;
+bool dbgLed = true;
+
 // Function declarations
 void sdCallback();
 int countFiles(File dir);
@@ -61,6 +66,7 @@ void pinConfig();
 void taskSetup();
 void sdConfig();
 void setupVolatilePacket();
+void Telemetry_State();
 String packetToString();
 void IRAM_ATTR can_ISR();
 void sdSave();
@@ -72,10 +78,6 @@ void gsmCallback(char *topic, byte *payload, unsigned int length);
 // State Machines
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
-
-// Can flag
-bool canReady = false;
-bool dbgLed = true;
 
 void setup()
 {
@@ -102,6 +104,7 @@ void setup()
     }
     flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
   }
+
   // se houve erro na CAN mostra
   if (!flagCANInit)
   {
@@ -112,6 +115,7 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
   sdTicker.attach(1, sdCallback);
+  telemetry_state.attach(2, Telemetry_State);
 }
 
 void loop() {}
@@ -129,7 +133,7 @@ void taskSetup()
 void SdStateMachine(void *pvParameters)
 {
   while (1)
-  {
+  { 
     if(saveFlag){
       sdConfig();
       saveFlag = false;
@@ -185,6 +189,7 @@ void setupVolatilePacket()
   volatile_packet.latitude = 0;
   volatile_packet.longitude = 0;
   volatile_packet.flags = 0;
+  volatile_packet.SOT = 0; /* false */
   volatile_packet.timestamp = 0;
 }
 
@@ -203,7 +208,7 @@ String packetToString()
     dataString += String(volatile_packet.imu_dps.dps_y);
     dataString += ",";
     dataString += String(volatile_packet.imu_dps.dps_z);
-
+    
     dataString += ",";
     dataString += String(volatile_packet.rpm);
     dataString += ",";
@@ -335,9 +340,22 @@ void canFilter()
     }
     if (messageId == VOLT_ID)
     {
-      memcpy(&volatile_packet.volt, (uint8_t *)messageData, len);
+      memcpy(&volatile_packet.volt, (double *)messageData, len);
+    }
+    if (messageId == SOT_ID)
+    {
+      memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
     }
   }
+}
+
+/* Telemetry State ticker */
+void Telemetry_State()
+{
+  byte sot[8];
+
+  sot[0] = volatile_packet.SOT;
+  CAN.sendMsgBuf(SOT_ID, false, 8, sot);
 }
 
 void ConnStateMachine(void *pvParameters)
@@ -409,6 +427,7 @@ void ConnStateMachine(void *pvParameters)
   {
     if (!mqttClient.connected())
     {
+      volatile_packet.SOT = false;
       gsmReconnect();
     }
 
@@ -465,15 +484,16 @@ void gsmReconnect()
         mqttClient.publish("/esp-connected", msg);
         memset(msg, 0, sizeof(msg));
         Serial.println("Connected.");
+        volatile_packet.SOT = true;
 
         /* Subscribe to topics */
         mqttClient.subscribe("/esp-test");
         digitalWrite(LED_BUILTIN, HIGH);
       }
-      else
-     {
+      else {
         Serial.print("Failed with state");
         Serial.println(mqttClient.state());
+        volatile_packet.SOT = false;
         delay(2000);
       }
   }

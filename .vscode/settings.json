@@ -4,6 +4,18 @@
         "*.tcc": "cpp",
         "fstream": "cpp",
         "*.tpp": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "atomic": "cpp",
+        "vector": "cpp",
+        "optional": "cpp",
+        "algorithm": "cpp",
+        "random": "cpp",
+        "functional": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "streambuf": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "cstddef": "cpp"
     }
 }
