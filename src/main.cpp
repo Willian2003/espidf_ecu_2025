@@ -516,6 +516,7 @@ void publishPacket()
   doc["volt"] = volatile_packet.volt;  
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
+  doc["sot"] = volatile_packet.SOT;
   doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
