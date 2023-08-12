@@ -27,10 +27,11 @@ typedef struct
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     uint8_t soc;
     uint16_t cvt;
+    uint16_t fuel;
     double volt;
     double latitude;
     double longitude;
-    bool SOT; //State of Telemetry, only for electronic panel
+    bool SOT;       //State of Telemetry, only for electronic panel
     uint32_t timestamp;
 
 } packet_t;

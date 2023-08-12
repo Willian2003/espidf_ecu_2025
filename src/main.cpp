@@ -185,6 +185,7 @@ void setupVolatilePacket()
   volatile_packet.speed = 0;
   volatile_packet.temperature = 0;
   volatile_packet.cvt = 0;
+  volatile_packet.fuel = 0;
   volatile_packet.volt = 0;
   volatile_packet.latitude = 0;
   volatile_packet.longitude = 0;
@@ -219,6 +220,8 @@ String packetToString()
     dataString += String(volatile_packet.soc);
     dataString += ",";
     dataString += String(volatile_packet.cvt);
+    dataString += ",";
+    dataString += String(volatile_packet.fuel);
     dataString += ",";
     dataString += String(volatile_packet.volt);
     dataString += ",";
@@ -345,6 +348,11 @@ void canFilter()
     if (messageId == SOT_ID)
     {
       memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
+    }
+
+    if (messageId == FUEL_ID)
+    {
+      memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
     }
   }
 }
@@ -516,7 +524,7 @@ void publishPacket()
   doc["volt"] = volatile_packet.volt;  
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
-  doc["sot"] = volatile_packet.SOT;
+  doc["Fuel_Level"] = volatile_packet.fuel;
   doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
