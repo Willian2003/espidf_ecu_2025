@@ -54,6 +54,7 @@ int pulse_counter = 0;
 int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
+bool gps_send=false;
 
 // Can flag
 bool canReady = false;
@@ -121,45 +122,6 @@ void setup()
 void loop() {}
 
 /* Setup Descriptions */
-
-void taskSetup()
-{
-  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
-  // This state machine is responsible for the Basic CAN logging
-  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
-  // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
-}
-
-void SdStateMachine(void *pvParameters)
-{
-  while (1)
-  { 
-    if(saveFlag){
-      sdConfig();
-      saveFlag = false;
-    }
-    canFilter();
-    vTaskDelay(1);
-  }
-}
-
-void sdConfig()
-{
-  if (!mounted)
-  {
-    if (!SD.begin(SD_CS))
-    {
-      return;
-    }
-
-    root = SD.open("/");
-    int num_files = countFiles(root);
-    sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
-    mounted = true;
-  }
-  sdSave();
-}
-
 void pinConfig()
 {
   // Pins
@@ -170,8 +132,6 @@ void pinConfig()
   // digitalWrite(MODEM_RST, HIGH);
   return;
 }
-
-/* SD functions */
 
 void setupVolatilePacket()
 {
@@ -192,6 +152,66 @@ void setupVolatilePacket()
   volatile_packet.flags = 0;
   volatile_packet.SOT = 0; /* false */
   volatile_packet.timestamp = 0;
+}
+
+void taskSetup()
+{
+  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
+  // This state machine is responsible for the Basic CAN logging
+  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
+  // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
+}
+
+/* SD State Machine */
+void SdStateMachine(void *pvParameters)
+{
+  while (1)
+  { 
+    if(saveFlag){
+      sdConfig();
+      saveFlag = false;
+    }
+    canFilter();
+    vTaskDelay(1);
+  }
+}
+
+/* SD functions */
+void sdConfig()
+{
+  if (!mounted)
+  {
+    if (!SD.begin(SD_CS))
+    {
+      return;
+    }
+
+    root = SD.open("/");
+    int num_files = countFiles(root);
+    sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+    mounted = true;
+  }
+  sdSave();
+}
+
+void sdSave()
+{
+  dataFile = SD.open(file_name, FILE_APPEND);
+
+  if (dataFile)
+  {
+    dataFile.println(packetToString());
+    dataFile.close();
+    savingBlink = !savingBlink;
+    digitalWrite(EMBEDDED_LED, savingBlink);
+
+  }
+
+  else
+  {
+    digitalWrite(EMBEDDED_LED, HIGH);
+    Serial.println("falha no save");
+  }
 }
 
 String packetToString()
@@ -231,26 +251,6 @@ String packetToString()
     dataString += ",";
 
   return dataString;
-}
-
-void sdSave()
-{
-  dataFile = SD.open(file_name, FILE_APPEND);
-
-  if (dataFile)
-  {
-    dataFile.println(packetToString());
-    dataFile.close();
-    savingBlink = !savingBlink;
-    digitalWrite(EMBEDDED_LED, savingBlink);
-
-  }
-
-  else
-  {
-    digitalWrite(EMBEDDED_LED, HIGH);
-    Serial.println("falha no save");
-  }
 }
 
 int countFiles(File dir)
@@ -361,11 +361,19 @@ void canFilter()
 void Telemetry_State()
 {
   byte sot[8];
+  //byte send_lat[8], send_lng[8];
 
-  sot[0] = volatile_packet.SOT;
+  sot[0] = volatile_packet.SOT; // 1 byte
   CAN.sendMsgBuf(SOT_ID, false, 8, sot);
+
+  //send_lat[0] = (byte)volatile_packet.latitude; //8 bytes
+  //send_lng[0] = (byte)volatile_packet.longitude; //8 bytes
+
+  //CAN.sendMsgBuf(LAT_ID, false, 8, send_lat);
+  //CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
 }
 
+/* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
   // To skip it, call init() instead of restart()
@@ -452,14 +460,12 @@ void ConnStateMachine(void *pvParameters)
         }
       }
     }
-
     mqttClient.loop();
     vTaskDelay(1);
   }
 }
 
 /* GPRS Functions */
-
 void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
