@@ -19,19 +19,25 @@ typedef struct
 
 typedef struct
 {
-    imu_dps_t imu_dps;
-    imu_acc_t imu_acc;
-    uint16_t rpm;
-    uint16_t speed;
+    /* BMU DATAS */
+    double volt;
+    uint8_t soc;
+    uint8_t cvt;
+    uint16_t fuel;
+    double current;
+    /* REAR DATAS */
     uint8_t temperature;
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
-    uint8_t soc;
-    uint16_t cvt;
-    uint16_t fuel;
-    double volt;
+    uint16_t rpm;
+    /* FRONT DATAS */
+    imu_dps_t imu_dps;
+    imu_acc_t imu_acc;
+    uint16_t speed;
+    /* SCU DATAS */
+    uint8_t SOT;  //State of Telemetry, only for electronic panel
     double latitude;
     double longitude;
-    bool SOT;       //State of Telemetry, only for electronic panel
+    /* DEBUG DATA */
     uint32_t timestamp;
 
 } packet_t;
