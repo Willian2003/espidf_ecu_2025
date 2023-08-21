@@ -14,24 +14,30 @@
 #include "saving.h"
 #include "gprs_defs.h"
 #include <Ticker.h>
+#include <CircularBuffer.h>
 
 HardwareSerial neogps(1);
 TinyGPSPlus gps;
 
+//Circular buffer variables
+CircularBuffer<state_t, BUFFER_SIZE> state_buffer;
+bool buffer_full=false;
+state_t state = IDLE_ST;
 // SD var
 Ticker sdTicker;
-Ticker telemetry_state;
+Ticker ticker1Hz;
+Ticker ticker2Sec;
 bool savingBlink = false;
 bool mounted = false; // SD mounted flag
 
 // GPRS credentials
-const char apn[] = "timbrasil.br";    // Your APN
+const char apn[] = "timbrasil.br";     // Your APN
 const char gprsUser[] = "tim";         // User
 const char gprsPass[] = "tim";         // Password
 const char simPIN[] = "1010";          // SIM card PIN code, if any
 
 /*Configuração padrão da datelo*/
-/*const char apn[] = "datelo.nlt.br";    // Your APN
+/*const char apn[] = "datelo.nlt.br";  // Your APN
 const char gprsUser[] = "nlt";         // User
 const char gprsPass[] = "nlt";         // Password
 const char simPIN[] = "6214";          // SIM card PIN code, if any*/
@@ -54,12 +60,10 @@ int pulse_counter = 0;
 int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
-bool gps_send=false;
 
-// Can flag
-bool canReady = false;
-bool dbgLed = true;
-
+/* Interrupts routine */
+void ticker1HzISR();
+void ticker2SecISR();
 // Function declarations
 void sdCallback();
 int countFiles(File dir);
@@ -67,7 +71,7 @@ void pinConfig();
 void taskSetup();
 void sdConfig();
 void setupVolatilePacket();
-void Telemetry_State();
+void RingBuffer_state();
 String packetToString();
 void IRAM_ATTR can_ISR();
 void sdSave();
@@ -116,7 +120,8 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
   sdTicker.attach(1, sdCallback);
-  telemetry_state.attach(2, Telemetry_State);
+  ticker1Hz.attach(1, ticker1HzISR);
+  ticker2Sec.attach(2, ticker2SecISR);
 }
 
 void loop() {}
@@ -147,10 +152,13 @@ void setupVolatilePacket()
   volatile_packet.cvt = 0;
   volatile_packet.fuel = 0;
   volatile_packet.volt = 0;
-  volatile_packet.latitude = 0;
-  volatile_packet.longitude = 0;
+  volatile_packet.current = 0;
+  //volatile_packet.latitude = 0; 
+  //volatile_packet.longitude = 0;
+  volatile_packet.latitude = -8.055626464908041;   // Pista de teste da mangue baja
+  volatile_packet.longitude = -34.950388058575555;
   volatile_packet.flags = 0;
-  volatile_packet.SOT = 0; /* false */
+  volatile_packet.SOT = 0; 
   volatile_packet.timestamp = 0;
 }
 
@@ -166,14 +174,84 @@ void taskSetup()
 void SdStateMachine(void *pvParameters)
 {
   while (1)
-  { 
-    if(saveFlag){
+  {
+    RingBuffer_state(); 
+    if(saveFlag)
+    {
       sdConfig();
       saveFlag = false;
     }
     canFilter();
     vTaskDelay(1);
   }
+}
+
+/* States for send messages(SOT, Latitude, Longitude) */
+void RingBuffer_state()
+{
+  if(state_buffer.isFull())
+  {
+    buffer_full=true;
+  } else {
+    buffer_full=false;
+    if(!state_buffer.isEmpty())
+      state = state_buffer.pop();
+    else
+      state = IDLE_ST;
+  }
+
+  switch (state)
+  {
+    case IDLE_ST:
+      //Serial.println("i");
+      break;
+    
+    case SOT_ST:
+      //Serial.println("sot");
+      byte sot[8];
+      sot[0] = volatile_packet.SOT; // 1 byte
+
+      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK) 
+      {
+        //Serial.println("send ok");
+      }
+
+      break;
+
+    case GPS_ST:
+      //Serial.println("gps");
+      byte send_lat[8], send_lng[8];
+      send_lat[0] = volatile_packet.latitude;  // 8 bytes
+      send_lng[0] = volatile_packet.longitude; // 8 bytes
+
+      if(CAN.sendMsgBuf(LAT_ID, false, 8, send_lat)==CAN_OK) 
+      {
+        //Send the message only the latitude has successful 
+        //Serial.println("ok");
+        CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
+      }
+
+      break;
+
+    case DEBUG_ST:
+      //Serial.println("d");
+      //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
+      //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
+      //Serial.printf("\r\nLongitude = %lf\r\n", volatile_packet.longitude);
+      break;
+  }
+}
+
+/* Interrupts routine */
+void ticker1HzISR()
+{
+  state_buffer.push(GPS_ST);
+  //state_buffer.push(DEBUG_ST);
+}
+
+void ticker2SecISR()
+{
+  state_buffer.push(SOT_ST);
 }
 
 /* SD functions */
@@ -203,14 +281,14 @@ void sdSave()
     dataFile.println(packetToString());
     dataFile.close();
     savingBlink = !savingBlink;
-    digitalWrite(EMBEDDED_LED, savingBlink);
+    digitalWrite(DEBUG_LED, savingBlink);
 
   }
 
   else
   {
-    digitalWrite(EMBEDDED_LED, HIGH);
-    Serial.println("falha no save");
+    digitalWrite(DEBUG_LED, LOW);
+    Serial.println(F("falha no save"));
   }
 }
 
@@ -245,6 +323,8 @@ String packetToString()
     dataString += ",";
     dataString += String(volatile_packet.volt);
     dataString += ",";
+    dataString += String(volatile_packet.current);
+    dataString += ",";
     dataString += String(volatile_packet.flags);
     dataString += ",";
     dataString += String(volatile_packet.timestamp);
@@ -258,7 +338,6 @@ int countFiles(File dir)
   int fileCountOnSD = 0; // for counting files
   while (true)
   {
-
     File entry = dir.openNextFile();
     if (!entry)
     {
@@ -289,7 +368,7 @@ void canFilter()
 {
 
   mode = !mode;
-  digitalWrite(DEBUG_LED, mode);
+  digitalWrite(EMBEDDED_LED, mode);
   while (CAN_MSGAVAIL == CAN.checkReceive())
   {
     byte messageData[8];
@@ -299,78 +378,101 @@ void canFilter()
     CAN.readMsgBuf(&len, messageData); // Reads message
     messageId = CAN.getCanId();
 
+    /* Debug DATA */
     volatile_packet.timestamp = millis();
+
+    /* Battery management DATA */
+    if (messageId == VOLTAGE_ID)
+    {
+      memcpy(&volatile_packet.volt, (double *)messageData, len); 
+      //Serial.printf("\r\nVoltage = %lf\r\n", volatile_packet.volt);
+    }
+
+    if (messageId == SOC_ID)
+    {
+      memcpy(&volatile_packet.soc, (uint8_t *)messageData, len);
+      //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.soc);
+    }
+
+    if (messageId == CURRENT_ID)
+    {
+      memcpy(&volatile_packet.current, (double *)messageData, len);
+      //Serial.printf("\r\nCurrent = %lf\r\n", volatile_packet.current);
+    }
+
+    /* Rear DATA */
+    if (messageId == CVT_ID) // Old BMU //ok
+     {
+      memcpy(&volatile_packet.cvt, (uint8_t *)messageData, len);
+      //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
+    }
+
+    if (messageId == FUEL_ID) // Old BMU //ok
+    {
+      memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
+      //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
+    }
+
+    if (messageId == TEMPERATURE_ID)
+    {
+      mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
+      Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
+    } 
+
+    if (messageId == FLAGS_ID)
+    {
+      mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
+      Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
+    }
 
     if (messageId == RPM_ID)
     {
       mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
+      Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
+    
+    /* Front DATA */
     if (messageId == SPEED_ID)
     {
       mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
-    }
-    if (messageId == TEMPERATURE_ID)
-    {
-      mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
-    }
-    if (messageId == FLAGS_ID)
-    {
-      mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
-    }
+      Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
+    } 
+
     if (messageId == IMU_ACC_ID)
     {
       memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
+      Serial.printf("\r\nAccx = %d\r\n", volatile_packet.imu_acc.acc_x);
+      Serial.printf("\r\nAccy = %d\r\n", volatile_packet.imu_acc.acc_y);
+      Serial.printf("\r\nAccz = %d\r\n", volatile_packet.imu_acc.acc_z);
     }
+
     if (messageId == IMU_DPS_ID)
     {
       memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
+      Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
+      Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
+      Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
     }
-    if (messageId == CVT_ID)
-    {
-      memcpy(&volatile_packet.cvt, (uint16_t *)messageData, len);
-    }
+
+    /* GPS/TELEMETRY DATA */
     if (messageId == LAT_ID)
     {
-      memcpy(&volatile_packet.latitude, (uint16_t *)messageData, len);
+      memcpy(&volatile_packet.latitude, (double *)messageData, len);
+      //Serial.println(volatile_packet.latitude);
     }
+
     if (messageId == LNG_ID)
     {
-      memcpy(&volatile_packet.longitude, (uint16_t *)messageData, len);
+      memcpy(&volatile_packet.longitude, (double *)messageData, len);
+      //Serial.println(volatile_packet.longitude);
     }
-    if (messageId == SOC_ID)
-    {
-      memcpy(&volatile_packet.soc, (uint8_t *)messageData, len);
-    }
-    if (messageId == VOLT_ID)
-    {
-      memcpy(&volatile_packet.volt, (double *)messageData, len);
-    }
+
     if (messageId == SOT_ID)
     {
       memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
-    }
-
-    if (messageId == FUEL_ID)
-    {
-      memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
+      //Serial.println(volatile_packet.SOT);
     }
   }
-}
-
-/* Telemetry State ticker */
-void Telemetry_State()
-{
-  byte sot[8];
-  //byte send_lat[8], send_lng[8];
-
-  sot[0] = volatile_packet.SOT; // 1 byte
-  CAN.sendMsgBuf(SOT_ID, false, 8, sot);
-
-  //send_lat[0] = (byte)volatile_packet.latitude; //8 bytes
-  //send_lng[0] = (byte)volatile_packet.longitude; //8 bytes
-
-  //CAN.sendMsgBuf(LAT_ID, false, 8, send_lat);
-  //CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
 }
 
 /* Connectivity State Machine */
@@ -443,7 +545,7 @@ void ConnStateMachine(void *pvParameters)
   {
     if (!mqttClient.connected())
     {
-      volatile_packet.SOT = false;
+      volatile_packet.SOT = 0;
       gsmReconnect();
     }
 
@@ -498,7 +600,7 @@ void gsmReconnect()
         mqttClient.publish("/esp-connected", msg);
         memset(msg, 0, sizeof(msg));
         Serial.println("Connected.");
-        volatile_packet.SOT = true;
+        volatile_packet.SOT = 1;
 
         /* Subscribe to topics */
         mqttClient.subscribe("/esp-test");
@@ -507,7 +609,7 @@ void gsmReconnect()
       else {
         Serial.print("Failed with state");
         Serial.println(mqttClient.state());
-        volatile_packet.SOT = false;
+        volatile_packet.SOT = 0;
         delay(2000);
       }
   }
@@ -530,7 +632,7 @@ void publishPacket()
   doc["volt"] = volatile_packet.volt;  
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
-  doc["Fuel_Level"] = volatile_packet.fuel;
+  doc["fuel_level"] = volatile_packet.fuel;
   doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
