@@ -1,7 +1,6 @@
 #ifndef HARDWARE_DEFS_H_
 #define HARDWARE_DEFS_H_
 
-
 /* pinout definitions */
 // LEDS
 #define EMBEDDED_LED 2 // Turned on on failiure
