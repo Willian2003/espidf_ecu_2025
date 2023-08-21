@@ -3,7 +3,7 @@
 
 
 /* pinout definitions */
-// LEDS c c c    v
+// LEDS
 #define EMBEDDED_LED 2 // Turned on on failiure
 #define DEBUG_LED 25
 
