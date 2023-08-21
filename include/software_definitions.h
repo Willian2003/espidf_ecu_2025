@@ -5,6 +5,13 @@
 
 /* State Machines */
 typedef enum {
+    IDLE_ST,
+    SOT_ST,
+    GPS_ST,
+    DEBUG_ST
+} state_t;
+
+typedef enum {
     IDLE,
     SAVE,
     CAN_STATE,
