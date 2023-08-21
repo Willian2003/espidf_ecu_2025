@@ -10,10 +10,8 @@
 
 // if testing is needed, raising the value above may help the analisys
 
-
 char file_name[20];
 File root;
 File dataFile;
-
 
 #endif
