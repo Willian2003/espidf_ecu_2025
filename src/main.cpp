@@ -211,10 +211,8 @@ void RingBuffer_state()
       byte sot[8];
       sot[0] = volatile_packet.SOT; // 1 byte
 
-      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK) 
-      {
-        //Serial.println("send ok");
-      }
+      /* Send CAN message */
+      CAN.sendMsgBuf(SOT_ID, false, 8, sot);
 
       break;
 
@@ -224,10 +222,11 @@ void RingBuffer_state()
       send_lat[0] = volatile_packet.latitude;  // 8 bytes
       send_lng[0] = volatile_packet.longitude; // 8 bytes
 
+      /* Send CAN message */
       if(CAN.sendMsgBuf(LAT_ID, false, 8, send_lat)==CAN_OK) 
       {
         //Send the message only the latitude has successful 
-        //Serial.println("ok");
+        //Serial.println("send latitude");
         CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
       }
 
@@ -282,11 +281,7 @@ void sdSave()
     dataFile.close();
     savingBlink = !savingBlink;
     digitalWrite(DEBUG_LED, savingBlink);
-
-  }
-
-  else
-  {
+  } else {
     digitalWrite(DEBUG_LED, LOW);
     Serial.println(F("falha no save"));
   }
@@ -366,11 +361,13 @@ void IRAM_ATTR can_ISR()
 
 void canFilter()
 {
-
-  mode = !mode;
-  digitalWrite(EMBEDDED_LED, mode);
+  //mode = !mode;
+  //digitalWrite(EMBEDDED_LED, mode);
   while (CAN_MSGAVAIL == CAN.checkReceive())
   {
+    mode = !mode;
+    digitalWrite(EMBEDDED_LED, mode);
+
     byte messageData[8];
     uint32_t messageId;
     unsigned char len = 0;
@@ -401,13 +398,13 @@ void canFilter()
     }
 
     /* Rear DATA */
-    if (messageId == CVT_ID) // Old BMU //ok
+    if (messageId == CVT_ID) // Old BMU
      {
       memcpy(&volatile_packet.cvt, (uint8_t *)messageData, len);
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
-    if (messageId == FUEL_ID) // Old BMU //ok
+    if (messageId == FUEL_ID) // Old BMU
     {
       memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
       //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
@@ -416,42 +413,42 @@ void canFilter()
     if (messageId == TEMPERATURE_ID)
     {
       mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
-      Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
+      //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if (messageId == FLAGS_ID)
     {
       mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
-      Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
+      //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
     if (messageId == RPM_ID)
     {
       mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
-      Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
+      //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
     if (messageId == SPEED_ID)
     {
       mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
-      Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
+      //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     } 
 
     if (messageId == IMU_ACC_ID)
     {
       memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
-      Serial.printf("\r\nAccx = %d\r\n", volatile_packet.imu_acc.acc_x);
-      Serial.printf("\r\nAccy = %d\r\n", volatile_packet.imu_acc.acc_y);
-      Serial.printf("\r\nAccz = %d\r\n", volatile_packet.imu_acc.acc_z);
+      //Serial.printf("\r\nAccx = %d\r\n", volatile_packet.imu_acc.acc_x);
+      //Serial.printf("\r\nAccy = %d\r\n", volatile_packet.imu_acc.acc_y);
+      //Serial.printf("\r\nAccz = %d\r\n", volatile_packet.imu_acc.acc_z);
     }
 
     if (messageId == IMU_DPS_ID)
     {
       memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
-      Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
-      Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
-      Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
+      //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
+      //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
+      //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
     }
 
     /* GPS/TELEMETRY DATA */
@@ -500,11 +497,11 @@ void ConnStateMachine(void *pvParameters)
   Serial.print("Waiting for network...");
   if (!modem.waitForNetwork(240000L))
   {
-    Serial.println(" fail");
+    Serial.println("fail");
     delay(10000);
     return;
   }
-  Serial.println(" OK");
+  Serial.println("OK");
 
   if (modem.isNetworkConnected())
   {
