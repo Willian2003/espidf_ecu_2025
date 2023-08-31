@@ -3,6 +3,13 @@
 
 #include <Arduino.h>
 
+#ifndef ESPRESSIF
+    #define ESPRESSIF
+    #include <FS.h>
+    #include <SPI.h>
+    #include <Wire.h>
+#endif
+
 /* State Machines */
 typedef enum {
     IDLE_ST,

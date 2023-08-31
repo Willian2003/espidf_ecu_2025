@@ -1,20 +1,17 @@
 #include <Arduino.h>
-#include <FS.h>
+#include <Ticker.h>
 #include <SD.h>
-#include <SPI.h>
-#include <Wire.h>
+#include <CircularBuffer.h>
+#include <mcp2515_can.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
 #include <TinyGPSPlus.h>
-#include "hardware_defs.h"
 #include "can_defs.h"
-#include "mcp2515_can.h"
-#include "software_definitions.h"
-#include "saving.h"
+#include "middle_defs.h"
+#include "hardware_defs.h"
 #include "gprs_defs.h"
-#include <Ticker.h>
-#include <CircularBuffer.h>
+#include "saving.h"
 
 HardwareSerial neogps(1);
 TinyGPSPlus gps;
