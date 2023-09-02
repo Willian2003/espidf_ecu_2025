@@ -3,7 +3,7 @@
 
 // IDs
 
-#define BUFFER_SIZE     50
+#define BUFFER_SIZE     75
 #define THROTTLE_MID    0x00
 #define THROTTLE_RUN    0x01
 #define THROTTLE_CHOKE  0x02
@@ -31,6 +31,7 @@
 #define CAN_2515
 
 #include "mcp2515_can.h"
+#include "hardware_defs.h"
 
 mcp2515_can CAN(CAN_CS);
 
