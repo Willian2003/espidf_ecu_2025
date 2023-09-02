@@ -58,28 +58,30 @@ int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
 
+/* States Machines */
+void SdStateMachine(void *pvParameters);
+void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
 void ticker1HzISR();
 void ticker2SecISR();
-// Function declarations
-void sdCallback();
-int countFiles(File dir);
-void pinConfig();
-void taskSetup();
-void sdConfig();
+/* Global Functions */
+void pinConfig(); // Setup functions
 void setupVolatilePacket();
-void RingBuffer_state();
-String packetToString();
-void IRAM_ATTR can_ISR();
+void taskSetup();
+void RingBuffer_state(); // CAN transceiver function
+// SD Functions
+void sdConfig();
 void sdSave();
+String packetToString();
+int countFiles(File dir);
+void sdCallback();
+// CAN receiver functions
+void IRAM_ATTR can_ISR();
 void canFilter();
+// Connectivity MQTT functions
 void gsmReconnect();
 void publishPacket();
 void gsmCallback(char *topic, byte *payload, unsigned int length);
-
-// State Machines
-void SdStateMachine(void *pvParameters);
-void ConnStateMachine(void *pvParameters);
 
 void setup()
 {
@@ -96,8 +98,8 @@ void setup()
   // aguarda incializar o shield CAN
 
   Serial.println("Connecting CAN...");
-  while ((millis() - tcanStart) < cantimeOut)
-  { // aguarda o timeout
+  while ((millis() - tcanStart) < cantimeOut) // aguarda o timeout
+  { 
     if (CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
     {
       Serial.println("CAN init ok!!!");
