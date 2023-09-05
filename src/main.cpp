@@ -13,32 +13,44 @@
 #include "gprs_defs.h"
 #include "saving.h"
 
+/* Credentials */
+//#define TIM   //Uncomment this line and comment the others if this is your chip
+#define CLARO   //Uncomment this line and comment the others if this is your chip
+//#define VIVO  //Uncomment this line and comment the others if this is your chip
+
+// GPRS credentials
+#ifdef TIM
+    const char apn[] = "timbrasil.br";    // Your APN
+    const char gprsUser[] = "tim";        // User
+    const char gprsPass[] = "tim";        // Password
+    const char simPIN[] = "1010";         // SIM card PIN code, if any
+#elif defined(CLARO)
+    const char apn[] = "claro.com.br";    // Your APN
+    const char gprsUser[] = "claro";      // User
+    const char gprsPass[] = "claro";      // Password
+    const char simPIN[] = "3636";         // SIM cad PIN code, id any
+#elif defined(VIVO)
+    const char apn[] = "zap.vivo.com.br";  // Your APN
+    const char gprsUser[] = "vivo";        // User
+    const char gprsPass[] = "vivo";        // Password
+    const char simPIN[] = "8486";          // SIM cad PIN code, id any
+#endif
+
+/* Libraries Variables */
 HardwareSerial neogps(1);
 TinyGPSPlus gps;
-
-//Circular buffer variables
-CircularBuffer<state_t, BUFFER_SIZE> state_buffer;
-bool buffer_full=false;
+/* ESP Tools */
+CircularBuffer<state_t, BUFFER_SIZE-25> state_buffer;
 state_t state = IDLE_ST;
-// SD var
 Ticker sdTicker;
 Ticker ticker1Hz;
 Ticker ticker2Sec;
-bool savingBlink = false;
+
+/* Debug Variables */
+bool buffer_full = false;
 bool mounted = false; // SD mounted flag
-
-// GPRS credentials
-const char apn[] = "timbrasil.br";     // Your APN
-const char gprsUser[] = "tim";         // User
-const char gprsPass[] = "tim";         // Password
-const char simPIN[] = "1010";          // SIM card PIN code, if any
-
-/*Configuração padrão da datelo*/
-/*const char apn[] = "datelo.nlt.br";  // Your APN
-const char gprsUser[] = "nlt";         // User
-const char gprsPass[] = "nlt";         // Password
-const char simPIN[] = "6214";          // SIM card PIN code, if any*/
-
+bool savingBlink = false;
+/* Global Variables */
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
@@ -65,10 +77,11 @@ void ConnStateMachine(void *pvParameters);
 void ticker1HzISR();
 void ticker2SecISR();
 /* Global Functions */
-void pinConfig(); // Setup functions
+void pinConfig();
 void setupVolatilePacket();
 void taskSetup();
-void RingBuffer_state(); // CAN transceiver function
+// CAN transmitter function
+void RingBuffer_state();
 // SD Functions
 void sdConfig();
 void sdSave();
@@ -123,7 +136,7 @@ void setup()
   ticker2Sec.attach(2, ticker2SecISR);
 }
 
-void loop() {}
+void loop() {} /* Dont Write here */
 
 /* Setup Descriptions */
 void pinConfig()
@@ -351,7 +364,6 @@ void sdCallback()
 }
 
 /* Can functions */
-
 void IRAM_ATTR can_ISR()
 {
   detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
