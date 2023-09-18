@@ -11,7 +11,7 @@
 #define TINY_GSM_RX_BUFFER 1024 // Set RX buffer to 1Kb
 #define MSG_BUFFER_SIZE 1024
 
-#include "TinyGSM.h"
+#include <TinyGSM.h>
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 

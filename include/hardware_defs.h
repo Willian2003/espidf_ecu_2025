@@ -23,7 +23,7 @@
 #define MODEM_RST 
 
 //GPS
-#define GPSTX 32
-#define GPSRX 33
+//#define GPSTX 32
+//#define GPSRX 33
 
 #endif
