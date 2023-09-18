@@ -13,36 +13,36 @@
 #include "gprs_defs.h"
 #include "saving.h"
 
-/* Credentials */
-//#define TIM   //Uncomment this line and comment the others if this is your chip
-#define CLARO   //Uncomment this line and comment the others if this is your chip
-//#define VIVO  //Uncomment this line and comment the others if this is your chip
+/* Credentials Variables */
+#define TIM   // Uncomment this line and comment the others if this is your chip
+//#define CLARO   // Uncomment this line and comment the others if this is your chip
+//#define VIVO  // Uncomment this line and comment the others if this is your chip
 
 // GPRS credentials
 #ifdef TIM
-    const char apn[] = "timbrasil.br";    // Your APN
-    const char gprsUser[] = "tim";        // User
-    const char gprsPass[] = "tim";        // Password
-    const char simPIN[] = "1010";         // SIM card PIN code, if any
+  const char apn[] = "timbrasil.br";    // Your APN
+  const char gprsUser[] = "tim";        // User
+  const char gprsPass[] = "tim";        // Password
+  const char simPIN[] = "1010";         // SIM card PIN code, if any
 #elif defined(CLARO)
-    const char apn[] = "claro.com.br";    // Your APN
-    const char gprsUser[] = "claro";      // User
-    const char gprsPass[] = "claro";      // Password
-    const char simPIN[] = "3636";         // SIM cad PIN code, id any
+  const char apn[] = "claro.com.br";    // Your APN
+  const char gprsUser[] = "claro";      // User
+  const char gprsPass[] = "claro";      // Password
+  const char simPIN[] = "3636";         // SIM cad PIN code, id any
 #elif defined(VIVO)
-    const char apn[] = "zap.vivo.com.br";  // Your APN
-    const char gprsUser[] = "vivo";        // User
-    const char gprsPass[] = "vivo";        // Password
-    const char simPIN[] = "8486";          // SIM cad PIN code, id any
+  const char apn[] = "zap.vivo.com.br";  // Your APN
+  const char gprsUser[] = "vivo";        // User
+  const char gprsPass[] = "vivo";        // Password
+  const char simPIN[] = "8486";          // SIM cad PIN code, id any
 #endif
 
-/* Libraries Variables */
-HardwareSerial neogps(1);
-TinyGPSPlus gps;
+/* General Libraries */
+//HardwareSerial neogps(1);
+//TinyGPSPlus gps;
+
 /* ESP Tools */
-CircularBuffer<state_t, BUFFER_SIZE-25> state_buffer;
-state_t state = IDLE_ST;
-Ticker sdTicker;
+CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
+state_t current_state = IDLE_ST;
 Ticker ticker1Hz;
 Ticker ticker2Sec;
 
@@ -59,7 +59,7 @@ char payload_char[MSG_BUFFER_SIZE];
 const long timeoutTime = 1000;
 boolean flagCANInit = false;
 
-// ESP hotspot defini  tions
+// ESP hotspot definitions
 const char *host = "esp32";                   // Here's your "host device name"
 const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
 const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
@@ -74,12 +74,14 @@ bool saveFlag = false;
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
+void IRAM_ATTR can_ISR();
 void ticker1HzISR();
 void ticker2SecISR();
-/* Global Functions */
-void pinConfig();
+/* Setup Descriptions */
+void pinConfig();    
 void setupVolatilePacket();
-void taskSetup();
+void taskSetup(); 
+/* SD State Machine Global Functions */         
 // CAN transmitter function
 void RingBuffer_state();
 // SD Functions
@@ -87,14 +89,13 @@ void sdConfig();
 void sdSave();
 String packetToString();
 int countFiles(File dir);
-void sdCallback();
-// CAN receiver functions
-void IRAM_ATTR can_ISR();
+// CAN receiver function
 void canFilter();
-// Connectivity MQTT functions
+/* Connectivity State Machine Global Functions */
+// GPRS Functions
+void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
 void publishPacket();
-void gsmCallback(char *topic, byte *payload, unsigned int length);
 
 void setup()
 {
@@ -131,7 +132,7 @@ void setup()
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
-  sdTicker.attach(1, sdCallback);
+
   ticker1Hz.attach(1, ticker1HzISR);
   ticker2Sec.attach(2, ticker2SecISR);
 }
@@ -198,21 +199,23 @@ void SdStateMachine(void *pvParameters)
   }
 }
 
-/* States for send messages(SOT, Latitude, Longitude) */
+/* SD State Machine Global Functions */
+// CAN transmitter function
 void RingBuffer_state()
 {
   if(state_buffer.isFull())
   {
     buffer_full=true;
+    current_state = state_buffer.pop();
   } else {
     buffer_full=false;
     if(!state_buffer.isEmpty())
-      state = state_buffer.pop();
+      current_state = state_buffer.pop();
     else
-      state = IDLE_ST;
+      current_state = IDLE_ST;
   }
 
-  switch (state)
+  switch(current_state)
   {
     case IDLE_ST:
       //Serial.println("i");
@@ -238,7 +241,7 @@ void RingBuffer_state()
       if(CAN.sendMsgBuf(LAT_ID, false, 8, send_lat)==CAN_OK) 
       {
         //Send the message only the latitude has successful 
-        //Serial.println("send latitude");
+        //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
         CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
       }
 
@@ -253,19 +256,7 @@ void RingBuffer_state()
   }
 }
 
-/* Interrupts routine */
-void ticker1HzISR()
-{
-  state_buffer.push(GPS_ST);
-  //state_buffer.push(DEBUG_ST);
-}
-
-void ticker2SecISR()
-{
-  state_buffer.push(SOT_ST);
-}
-
-/* SD functions */
+// SD Functions
 void sdConfig()
 {
   if (!mounted)
@@ -281,6 +272,24 @@ void sdConfig()
     mounted = true;
   }
   sdSave();
+}
+
+int countFiles(File dir)
+{
+  int fileCountOnSD = 0; // for counting files
+  while (true)
+  {
+    File entry = dir.openNextFile();
+    if (!entry)
+    {
+      // no more files
+      break;
+    }
+    // for each file count it
+    fileCountOnSD++;
+    entry.close();
+  }
+  return fileCountOnSD - 1;
 }
 
 void sdSave()
@@ -340,36 +349,7 @@ String packetToString()
   return dataString;
 }
 
-int countFiles(File dir)
-{
-  int fileCountOnSD = 0; // for counting files
-  while (true)
-  {
-    File entry = dir.openNextFile();
-    if (!entry)
-    {
-      // no more files
-      break;
-    }
-    // for each file count it
-    fileCountOnSD++;
-    entry.close();
-  }
-  return fileCountOnSD - 1;
-}
-
-void sdCallback() 
-{
-  saveFlag = true;
-}
-
-/* Can functions */
-void IRAM_ATTR can_ISR()
-{
-  detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
-  l_state = CAN_STATE;
-}
-
+// CAN receiver function
 void canFilter()
 {
   //mode = !mode;
@@ -444,7 +424,7 @@ void canFilter()
     {
       mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
-    } 
+    }  
 
     if (messageId == IMU_ACC_ID)
     {
@@ -553,13 +533,13 @@ void ConnStateMachine(void *pvParameters)
   {
     if (!mqttClient.connected())
     {
-      volatile_packet.SOT = 0;
+      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
       gsmReconnect();
     }
 
     publishPacket();
 
-    for (unsigned long start = millis(); millis() - start < timeoutTime;)
+    /*for (unsigned long start = millis(); millis() - start < timeoutTime;)
     {
       while (neogps.available())
       {
@@ -569,13 +549,14 @@ void ConnStateMachine(void *pvParameters)
           volatile_packet.longitude = gps.location.lng();
         }
       }
-    }
+    }*/
     mqttClient.loop();
     vTaskDelay(1);
   }
 }
 
-/* GPRS Functions */
+/* Connectivity State Machine Global Functions */
+// GPRS Functions 
 void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
@@ -608,7 +589,7 @@ void gsmReconnect()
         mqttClient.publish("/esp-connected", msg);
         memset(msg, 0, sizeof(msg));
         Serial.println("Connected.");
-        volatile_packet.SOT = 1;
+        volatile_packet.SOT |= 0x01; // enable online flag (00000001)
 
         /* Subscribe to topics */
         mqttClient.subscribe("/esp-test");
@@ -617,8 +598,8 @@ void gsmReconnect()
       else {
         Serial.print("Failed with state");
         Serial.println(mqttClient.state());
-        volatile_packet.SOT = 0;
-        delay(2000);
+        volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+        delay(2000); 
       }
   }
 }
@@ -646,4 +627,23 @@ void publishPacket()
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
   mqttClient.publish("/logging", msg);
+}
+
+/* Interrupts routine */
+void IRAM_ATTR can_ISR()
+{
+  detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
+  l_state = CAN_STATE;
+}
+
+void ticker1HzISR()
+{
+  saveFlag = true;
+  state_buffer.push(GPS_ST);
+  //state_buffer.push(DEBUG_ST);
+}
+
+void ticker2SecISR()
+{
+  state_buffer.push(SOT_ST);
 }

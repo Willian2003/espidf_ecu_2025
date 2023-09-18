@@ -22,19 +22,20 @@ typedef struct
     /* BMU DATAS */
     double volt;
     uint8_t soc;
-    uint8_t cvt;
-    uint16_t fuel;
     double current;
     /* REAR DATAS */
+    uint16_t fuel; // actually in BMU
+    uint8_t cvt; // actually in BMU
     uint8_t temperature;
-    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     uint16_t rpm;
     /* FRONT DATAS */
     imu_dps_t imu_dps;
     imu_acc_t imu_acc;
     uint16_t speed;
-    /* SCU DATAS */
-    uint8_t SOT;  //State of Telemetry, only for electronic panel
+    /* FLAGS */
+    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
+    uint8_t SOT;   // NC | NC | NC | DEVAGAR | PISAR | COMB_STOP | BOX_MSG | ON=1/OF=0
+    /* GPS DATAS */
     double latitude;
     double longitude;
     /* DEBUG DATA */
