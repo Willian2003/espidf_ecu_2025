@@ -21,7 +21,7 @@ typedef struct
 {
     /* BMU DATAS */
     double volt;
-    uint8_t soc;
+    uint8_t SOC;
     double current;
     /* REAR DATAS */
     uint16_t fuel; // actually in BMU

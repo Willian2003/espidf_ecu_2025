@@ -84,6 +84,7 @@ void taskSetup();
 /* SD State Machine Global Functions */         
 // CAN transmitter function
 void RingBuffer_state();
+void readmsg_reset(uint8_t message);
 // SD Functions
 void sdConfig();
 void sdSave();
@@ -227,7 +228,14 @@ void RingBuffer_state()
       sot[0] = volatile_packet.SOT; // 1 byte
 
       /* Send CAN message */
-      CAN.sendMsgBuf(SOT_ID, false, 8, sot);
+      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot))
+      {
+        //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
+        //if(volatile_packet.SOT!=0)
+        //{
+          //readmsg_reset(volatile_packet.SOT);
+        //}
+      }
 
       break;
 
@@ -253,6 +261,35 @@ void RingBuffer_state()
       //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
       //Serial.printf("\r\nLongitude = %lf\r\n", volatile_packet.longitude);
       break;
+  }
+}
+
+void readmsg_reset(uint8_t message)
+{
+  switch(message)
+  {
+  case BOX_MSG:
+      /* 00000010 */             /* 00000001 */
+      volatile_packet.SOT >>= 1; // return to value 0x01
+    break;
+
+  case COMB_STOP:
+    /* 00000101 */                  /* 00000001 */
+    volatile_packet.SOT &= ~(0x02); // return to value 0x01
+    break;
+
+  case FAST:
+    /* 00001000 */              /* 00000001 */
+    volatile_packet.SOT >>= 2;  // return to value 0x01
+    break;
+
+  case SLOW:
+    /* 00001001 */                   /* 00000001 */
+    volatile_packet.SOT &= ~(0x04);  // return to value 0x01
+    break;
+  
+  default:
+    break;
   }
 }
 
@@ -312,11 +349,11 @@ String packetToString()
 {
   String dataString = "";
     // imu
-    dataString += String(volatile_packet.imu_acc.acc_x);
+    dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
     dataString += ",";
-    dataString += String(volatile_packet.imu_acc.acc_y);
+    dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
     dataString += ",";
-    dataString += String(volatile_packet.imu_acc.acc_z);
+    dataString += String((volatile_packet.imu_acc.acc_z*0.061)/1000);
     dataString += ",";
     dataString += String(volatile_packet.imu_dps.dps_x);
     dataString += ",";
@@ -331,7 +368,7 @@ String packetToString()
     dataString += ",";
     dataString += String(volatile_packet.temperature);
     dataString += ",";
-    dataString += String(volatile_packet.soc);
+    dataString += String(volatile_packet.SOC);
     dataString += ",";
     dataString += String(volatile_packet.cvt);
     dataString += ",";
@@ -378,8 +415,8 @@ void canFilter()
 
     if (messageId == SOC_ID)
     {
-      memcpy(&volatile_packet.soc, (uint8_t *)messageData, len);
-      //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.soc);
+      memcpy(&volatile_packet.SOC, (uint8_t *)messageData, len);
+      //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
     }
 
     if (messageId == CURRENT_ID)
@@ -611,12 +648,16 @@ void publishPacket()
   doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000; 
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
+  doc["dpsx"] = volatile_packet.imu_dps.dps_x;
+  doc["dpsy"] = volatile_packet.imu_dps.dps_y;
+  doc["dpsz"] = volatile_packet.imu_dps.dps_z;
   //doc["rpm"] = (volatile_packet.rpm*5000)/65535;
   doc["rpm"] = volatile_packet.rpm;
-  doc["speed"] = (volatile_packet.speed*60)/65535; //chega em bytes
+  doc["speed"] = volatile_packet.speed;
+  //doc["speed"] = (volatile_packet.speed*60)/65535; //chega em bytes
   doc["motor"] = volatile_packet.temperature; 
   doc["flags"] = volatile_packet.flags; 
-  doc["soc"] = volatile_packet.soc; 
+  doc["soc"] = volatile_packet.SOC; 
   doc["cvt"] = volatile_packet.cvt; 
   doc["volt"] = volatile_packet.volt;  
   doc["latitude"] = volatile_packet.latitude;
