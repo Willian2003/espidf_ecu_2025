@@ -47,6 +47,7 @@ Ticker ticker1Hz;
 Ticker ticker2Sec;
 
 /* Debug Variables */
+float Debug_accx = 0.0;
 bool buffer_full = false;
 bool mounted = false; // SD mounted flag
 bool savingBlink = false;
@@ -76,7 +77,6 @@ void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
 void IRAM_ATTR can_ISR();
 void ticker1HzISR();
-void ticker2SecISR();
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
@@ -135,7 +135,6 @@ void setup()
   taskSetup();           // Tasks
 
   ticker1Hz.attach(1, ticker1HzISR);
-  ticker2Sec.attach(2, ticker2SecISR);
 }
 
 void loop() {} /* Dont Write here */
@@ -349,7 +348,8 @@ String packetToString()
 {
   String dataString = "";
     // imu
-    dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
+    //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
+    dataString += String(Debug_accx);
     dataString += ",";
     dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
     dataString += ",";
@@ -466,9 +466,10 @@ void canFilter()
     if (messageId == IMU_ACC_ID)
     {
       memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
-      //Serial.printf("\r\nAccx = %d\r\n", volatile_packet.imu_acc.acc_x);
-      //Serial.printf("\r\nAccy = %d\r\n", volatile_packet.imu_acc.acc_y);
-      //Serial.printf("\r\nAccz = %d\r\n", volatile_packet.imu_acc.acc_z);
+      Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
+      //Serial.printf("\r\nAccx = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
+      //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
+      //Serial.printf("\r\nAccz = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
     }
 
     if (messageId == IMU_DPS_ID)
@@ -645,7 +646,8 @@ void publishPacket()
 {
   StaticJsonDocument<300> doc;
 
-  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000; 
+  //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
+  doc["accx"] = Debug_accx;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
   doc["dpsx"] = volatile_packet.imu_dps.dps_x;
@@ -680,11 +682,7 @@ void IRAM_ATTR can_ISR()
 void ticker1HzISR()
 {
   saveFlag = true;
+  state_buffer.push(SOT_ST);
   state_buffer.push(GPS_ST);
   //state_buffer.push(DEBUG_ST);
-}
-
-void ticker2SecISR()
-{
-  state_buffer.push(SOT_ST);
 }
