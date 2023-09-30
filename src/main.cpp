@@ -108,22 +108,22 @@ void setup()
   
   unsigned long tcanStart = 0, cantimeOut = 0;
   tcanStart = millis();
-  cantimeOut = 1000; // (1 segundo)
-  // aguarda incializar o shield CAN
+  cantimeOut = 1000; // (1 second)
+  // wait for the CAN shield to initialize
 
   Serial.println("Connecting CAN...");
-  while((millis() - tcanStart) < cantimeOut) // aguarda o timeout
+  while((millis() - tcanStart) < cantimeOut) // wait timeout
   { 
     if(CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
     {
       Serial.println("CAN init ok!!!");
-      flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
-      break; // sai do laço
+      flagCANInit = true; // Marks the flag that indicates correct CAN initialization
+      break; // get out of the loop
     }
-    flagCANInit = false; // marca a flag q indica q houve problema na inicialização da CAN
+    flagCANInit = false; // Mark the flag that indicates there was a problem initializing the CAN
   }
 
-  // se houve erro na CAN mostra
+  // if there was an error in the CAN it shows
   if(!flagCANInit)
   {
     Serial.println("CAN error!!!");
@@ -166,10 +166,8 @@ void setupVolatilePacket()
   volatile_packet.fuel = 0;
   volatile_packet.volt = 0;
   volatile_packet.current = 0;
-  //volatile_packet.latitude = 0; 
-  //volatile_packet.longitude = 0;
-  volatile_packet.latitude = -8.055626464908041;   // Pista de teste da mangue baja
-  volatile_packet.longitude = -34.950388058575555;
+  volatile_packet.latitude = 0; 
+  volatile_packet.longitude = 0;
   volatile_packet.flags = 0;
   volatile_packet.SOT = 0; 
   volatile_packet.timestamp = 0;
@@ -186,7 +184,7 @@ void taskSetup()
 /* SD State Machine */
 void SdStateMachine(void *pvParameters)
 {
-  while (1)
+  while(1)
   {
     RingBuffer_state(); 
     if(saveFlag)
@@ -227,7 +225,7 @@ void RingBuffer_state()
       sot[0] = volatile_packet.SOT; // 1 byte
 
       /* Send CAN message */
-      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot))
+      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
       {
         //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
         //if(volatile_packet.SOT!=0)
@@ -614,7 +612,7 @@ void ConnStateMachine(void *pvParameters)
   Serial.print("SoftAP IP address: ");
   Serial.println(WiFi.softAPIP());
 
-  while (1)
+  while(1)
   {
     if(!mqttClient.connected())
     {
