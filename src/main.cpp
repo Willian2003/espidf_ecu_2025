@@ -14,9 +14,9 @@
 #include "saving.h"
 
 /* Credentials Variables */
-#define TIM   // Uncomment this line and comment the others if this is your chip
+#define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
-//#define VIVO  // Uncomment this line and comment the others if this is your chip
+//#define VIVO    // Uncomment this line and comment the others if this is your chip
 
 // GPRS credentials
 #ifdef TIM
@@ -43,7 +43,7 @@
 /* ESP Tools */
 CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
-Ticker ticker1Hz;
+Ticker ticker1Hz; 
 Ticker ticker2Sec;
 
 /* Debug Variables */
@@ -100,7 +100,6 @@ void publishPacket();
 
 void setup()
 {
-
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   //neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
@@ -109,13 +108,13 @@ void setup()
   
   unsigned long tcanStart = 0, cantimeOut = 0;
   tcanStart = millis();
-  cantimeOut = 1000; //(1 segundo)
+  cantimeOut = 1000; // (1 segundo)
   // aguarda incializar o shield CAN
 
   Serial.println("Connecting CAN...");
-  while ((millis() - tcanStart) < cantimeOut) // aguarda o timeout
+  while((millis() - tcanStart) < cantimeOut) // aguarda o timeout
   { 
-    if (CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
+    if(CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
     {
       Serial.println("CAN init ok!!!");
       flagCANInit = true; // marca a flag q indica q inicialização correta da CAN
@@ -125,7 +124,7 @@ void setup()
   }
 
   // se houve erro na CAN mostra
-  if (!flagCANInit)
+  if(!flagCANInit)
   {
     Serial.println("CAN error!!!");
     esp_restart();
@@ -137,7 +136,7 @@ void setup()
   ticker1Hz.attach(1, ticker1HzISR);
 }
 
-void loop() {} /* Dont Write here */
+void loop() {/* Dont Write here */} 
 
 /* Setup Descriptions */
 void pinConfig()
@@ -148,6 +147,7 @@ void pinConfig()
   pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   // pinMode(MODEM_RST, OUTPUT);
   // digitalWrite(MODEM_RST, HIGH);
+  
   return;
 }
 
@@ -267,28 +267,28 @@ void readmsg_reset(uint8_t message)
 {
   switch(message)
   {
-  case BOX_MSG:
-      /* 00000010 */             /* 00000001 */
-      volatile_packet.SOT >>= 1; // return to value 0x01
-    break;
+    case BOX_MSG:
+        /* 00000010 */             /* 00000001 */
+        volatile_packet.SOT >>= 1; // return to value 0x01
+      break;
 
-  case COMB_STOP:
-    /* 00000101 */                  /* 00000001 */
-    volatile_packet.SOT &= ~(0x02); // return to value 0x01
-    break;
+    case COMB_STOP:
+      /* 00000101 */                  /* 00000001 */
+      volatile_packet.SOT &= ~(0x02); // return to value 0x01
+      break;
 
-  case FAST:
-    /* 00001000 */              /* 00000001 */
-    volatile_packet.SOT >>= 2;  // return to value 0x01
-    break;
+    case FAST:
+      /* 00001000 */              /* 00000001 */
+      volatile_packet.SOT >>= 2;  // return to value 0x01
+      break;
 
-  case SLOW:
-    /* 00001001 */                   /* 00000001 */
-    volatile_packet.SOT &= ~(0x04);  // return to value 0x01
-    break;
-  
-  default:
-    break;
+    case SLOW:
+      /* 00001001 */                   /* 00000001 */
+      volatile_packet.SOT &= ~(0x04);  // return to value 0x01
+      break;
+    
+    default:
+      break;
   }
 }
 
@@ -297,14 +297,22 @@ void sdConfig()
 {
   if (!mounted)
   {
-    if (!SD.begin(SD_CS))
-    {
-      return;
-    }
+    if(!SD.begin(SD_CS)) { return; } 
 
     root = SD.open("/");
     int num_files = countFiles(root);
     sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
+
+    dataFile = SD.open(file_name, FILE_APPEND);
+
+    if(dataFile)
+    {
+      dataFile.println(packetToString());
+      dataFile.close();
+    } else {
+      digitalWrite(DEBUG_LED, HIGH);
+      Serial.println(F("FAIL TO OPEN THE FILE"));
+    }
     mounted = true;
   }
   sdSave();
@@ -313,7 +321,7 @@ void sdConfig()
 int countFiles(File dir)
 {
   int fileCountOnSD = 0; // for counting files
-  while (true)
+  while(true)
   {
     File entry = dir.openNextFile();
     if (!entry)
@@ -325,6 +333,7 @@ int countFiles(File dir)
     fileCountOnSD++;
     entry.close();
   }
+
   return fileCountOnSD - 1;
 }
 
@@ -332,7 +341,7 @@ void sdSave()
 {
   dataFile = SD.open(file_name, FILE_APPEND);
 
-  if (dataFile)
+  if(dataFile)
   {
     dataFile.println(packetToString());
     dataFile.close();
@@ -347,41 +356,78 @@ void sdSave()
 String packetToString()
 {
   String dataString = "";
-    // imu
-    //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
-    dataString += String(Debug_accx);
-    dataString += ",";
-    dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
-    dataString += ",";
-    dataString += String((volatile_packet.imu_acc.acc_z*0.061)/1000);
-    dataString += ",";
-    dataString += String(volatile_packet.imu_dps.dps_x);
-    dataString += ",";
-    dataString += String(volatile_packet.imu_dps.dps_y);
-    dataString += ",";
-    dataString += String(volatile_packet.imu_dps.dps_z);
+    if(!mounted)
+    {
+      dataString += "ACCX";
+      dataString += ",";
+      dataString += "ACCY";
+      dataString += ",";
+      dataString += "ACCZ";
+      dataString += ",";
+      dataString += "DPSX";
+      dataString += ",";
+      dataString += "DPSY";
+      dataString += ",";
+      dataString += "DPSZ";
+      dataString += ",";
+      dataString += "RPM";
+      dataString += ",";
+      dataString += "VEL";
+      dataString += ",";
+      dataString += "TEMP_MOTOR";
+      dataString += ",";
+      dataString += "SOC";
+      dataString += ",";
+      dataString += "TEMP_CVT";
+      dataString += ",";
+      dataString += "FUEL_LEVEL";
+      dataString += ",";
+      dataString += "VOLT";
+      dataString += ",";
+      dataString += "CURRENT";
+      dataString += ",";
+      dataString += "FLAGS";
+      dataString += ",";
+      dataString += "TIMESTAMP";
+    }
     
-    dataString += ",";
-    dataString += String(volatile_packet.rpm);
-    dataString += ",";
-    dataString += String(volatile_packet.speed);
-    dataString += ",";
-    dataString += String(volatile_packet.temperature);
-    dataString += ",";
-    dataString += String(volatile_packet.SOC);
-    dataString += ",";
-    dataString += String(volatile_packet.cvt);
-    dataString += ",";
-    dataString += String(volatile_packet.fuel);
-    dataString += ",";
-    dataString += String(volatile_packet.volt);
-    dataString += ",";
-    dataString += String(volatile_packet.current);
-    dataString += ",";
-    dataString += String(volatile_packet.flags);
-    dataString += ",";
-    dataString += String(volatile_packet.timestamp);
-    dataString += ",";
+    else
+    {
+      // imu
+      //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
+      dataString += String(Debug_accx);
+      dataString += ",";
+      dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
+      dataString += ",";
+      dataString += String((volatile_packet.imu_acc.acc_z*0.061)/1000);
+      dataString += ",";
+      dataString += String(volatile_packet.imu_dps.dps_x);
+      dataString += ",";
+      dataString += String(volatile_packet.imu_dps.dps_y);
+      dataString += ",";
+      dataString += String(volatile_packet.imu_dps.dps_z);
+      
+      dataString += ",";
+      dataString += String(volatile_packet.rpm);
+      dataString += ",";
+      dataString += String(volatile_packet.speed);
+      dataString += ",";
+      dataString += String(volatile_packet.temperature);
+      dataString += ",";
+      dataString += String(volatile_packet.SOC);
+      dataString += ",";
+      dataString += String(volatile_packet.cvt);
+      dataString += ",";
+      dataString += String(volatile_packet.fuel);
+      dataString += ",";
+      dataString += String(volatile_packet.volt);
+      dataString += ",";
+      dataString += String(volatile_packet.current);
+      dataString += ",";
+      dataString += String(volatile_packet.flags);
+      dataString += ",";
+      dataString += String(volatile_packet.timestamp);
+    }
 
   return dataString;
 }
@@ -391,8 +437,9 @@ void canFilter()
 {
   //mode = !mode;
   //digitalWrite(EMBEDDED_LED, mode);
-  while (CAN_MSGAVAIL == CAN.checkReceive())
+  while(CAN_MSGAVAIL == CAN.checkReceive())
   {
+    //Serial.println("ok!");
     mode = !mode;
     digitalWrite(EMBEDDED_LED, mode);
 
@@ -407,72 +454,72 @@ void canFilter()
     volatile_packet.timestamp = millis();
 
     /* Battery management DATA */
-    if (messageId == VOLTAGE_ID)
+    if(messageId == VOLTAGE_ID)
     {
       memcpy(&volatile_packet.volt, (double *)messageData, len); 
       //Serial.printf("\r\nVoltage = %lf\r\n", volatile_packet.volt);
     }
 
-    if (messageId == SOC_ID)
+    if(messageId == SOC_ID)
     {
       memcpy(&volatile_packet.SOC, (uint8_t *)messageData, len);
       //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
     }
 
-    if (messageId == CURRENT_ID)
+    if(messageId == CURRENT_ID)
     {
       memcpy(&volatile_packet.current, (double *)messageData, len);
       //Serial.printf("\r\nCurrent = %lf\r\n", volatile_packet.current);
     }
 
     /* Rear DATA */
-    if (messageId == CVT_ID) // Old BMU
+    if(messageId == CVT_ID) // Old BMU
      {
       memcpy(&volatile_packet.cvt, (uint8_t *)messageData, len);
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
-    if (messageId == FUEL_ID) // Old BMU
+    if(messageId == FUEL_ID) // Old BMU
     {
       memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
       //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
     }
 
-    if (messageId == TEMPERATURE_ID)
+    if(messageId == TEMPERATURE_ID)
     {
       mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
       //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
-    if (messageId == FLAGS_ID)
+    if(messageId == FLAGS_ID)
     {
       mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
       //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
-    if (messageId == RPM_ID)
+    if(messageId == RPM_ID)
     {
       mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
       //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
-    if (messageId == SPEED_ID)
+    if(messageId == SPEED_ID)
     {
       mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     }  
 
-    if (messageId == IMU_ACC_ID)
+    if(messageId == IMU_ACC_ID)
     {
       memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
       Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
-      //Serial.printf("\r\nAccx = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
+      //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
       //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
       //Serial.printf("\r\nAccz = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
     }
 
-    if (messageId == IMU_DPS_ID)
+    if(messageId == IMU_DPS_ID)
     {
       memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
       //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
@@ -481,19 +528,19 @@ void canFilter()
     }
 
     /* GPS/TELEMETRY DATA */
-    if (messageId == LAT_ID)
+    if(messageId == LAT_ID)
     {
       memcpy(&volatile_packet.latitude, (double *)messageData, len);
       //Serial.println(volatile_packet.latitude);
     }
 
-    if (messageId == LNG_ID)
+    if(messageId == LNG_ID)
     {
       memcpy(&volatile_packet.longitude, (double *)messageData, len);
       //Serial.println(volatile_packet.longitude);
     }
 
-    if (messageId == SOT_ID)
+    if(messageId == SOT_ID)
     {
       memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
       //Serial.println(volatile_packet.SOT);
@@ -518,13 +565,13 @@ void ConnStateMachine(void *pvParameters)
   Serial.println(modemstatus);
 
   // Unlock your SIM card with a PIN if needed
-  if (strlen(simPIN) && modem.getSimStatus() != 3)
+  if(strlen(simPIN) && modem.getSimStatus() != 3)
   {
     modem.simUnlock(simPIN);
   }
 
   Serial.print("Waiting for network...");
-  if (!modem.waitForNetwork(240000L))
+  if(!modem.waitForNetwork(240000L))
   {
     Serial.println("fail");
     delay(10000);
@@ -532,14 +579,14 @@ void ConnStateMachine(void *pvParameters)
   }
   Serial.println("OK");
 
-  if (modem.isNetworkConnected())
+  if(modem.isNetworkConnected())
   {
     Serial.println("Network connected");
   }
 
   Serial.print(F("Connecting to APN: "));
   Serial.print(apn);
-  if (!modem.gprsConnect(apn, gprsUser, gprsPass))
+  if(!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
     Serial.println(" fail");
     delay(10000);
@@ -551,7 +598,7 @@ void ConnStateMachine(void *pvParameters)
   WiFi.mode(WIFI_MODE_AP);
   WiFi.softAP(ESP_ssid, ESP_password);
 
-  if (!MDNS.begin(host)) // Use MDNS to solve DNS
+  if(!MDNS.begin(host)) // Use MDNS to solve DNS
   {
     // http://esp32.local
     Serial.println("Error configuring mDNS. Rebooting in 1s...");
@@ -569,7 +616,7 @@ void ConnStateMachine(void *pvParameters)
 
   while (1)
   {
-    if (!mqttClient.connected())
+    if(!mqttClient.connected())
     {
       volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
       gsmReconnect();
@@ -588,6 +635,7 @@ void ConnStateMachine(void *pvParameters)
         }
       }
     }*/
+
     mqttClient.loop();
     vTaskDelay(1);
   }
@@ -603,7 +651,7 @@ void gsmCallback(char *topic, byte *payload, unsigned int length)
 
   memset(payload_char, 0, sizeof(payload_char));
 
-  for (int i = 0; i < length; i++)
+  for(int i=0; i<length; i++)
   {
     Serial.print((char)payload[i]);
     payload_char[i] = (char)payload[i];
@@ -615,30 +663,30 @@ void gsmReconnect()
 {
   int count = 0;
   Serial.println("Conecting to MQTT Broker...");
-  while (!mqttClient.connected() && count < 3)
+  while(!mqttClient.connected() && count < 3)
   {
     count++;
     Serial.println("Reconecting to MQTT Broker..");
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
-      if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
-      {
-        sprintf(msg, "%s", "Online");
-        mqttClient.publish("/esp-connected", msg);
-        memset(msg, 0, sizeof(msg));
-        Serial.println("Connected.");
-        volatile_packet.SOT |= 0x01; // enable online flag (00000001)
 
-        /* Subscribe to topics */
-        mqttClient.subscribe("/esp-test");
-        digitalWrite(LED_BUILTIN, HIGH);
-      }
-      else {
-        Serial.print("Failed with state");
-        Serial.println(mqttClient.state());
-        volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
-        delay(2000); 
-      }
+    if(mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
+    {
+      sprintf(msg, "%s", "Online");
+      mqttClient.publish("/esp-connected", msg);
+      memset(msg, 0, sizeof(msg));
+      Serial.println("Connected.");
+      volatile_packet.SOT |= 0x01; // enable online flag (00000001)
+
+      /* Subscribe to topics */
+      mqttClient.subscribe("/esp-test");
+      digitalWrite(LED_BUILTIN, HIGH);
+    } else {
+      Serial.print("Failed with state");
+      Serial.println(mqttClient.state());
+      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+      delay(2000); 
+    }
   }
 }
 
@@ -653,10 +701,8 @@ void publishPacket()
   doc["dpsx"] = volatile_packet.imu_dps.dps_x;
   doc["dpsy"] = volatile_packet.imu_dps.dps_y;
   doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  //doc["rpm"] = (volatile_packet.rpm*5000)/65535;
   doc["rpm"] = volatile_packet.rpm;
   doc["speed"] = volatile_packet.speed;
-  //doc["speed"] = (volatile_packet.speed*60)/65535; //chega em bytes
   doc["motor"] = volatile_packet.temperature; 
   doc["flags"] = volatile_packet.flags; 
   doc["soc"] = volatile_packet.SOC; 
