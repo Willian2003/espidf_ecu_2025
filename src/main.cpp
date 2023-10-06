@@ -166,8 +166,8 @@ void setupVolatilePacket()
   volatile_packet.fuel = 0;
   volatile_packet.volt = 0;
   volatile_packet.current = 0;
-  volatile_packet.latitude = 0; 
-  volatile_packet.longitude = 0;
+  volatile_packet.latitude = -12.70814; 
+  volatile_packet.longitude = -38.1732;
   volatile_packet.flags = 0;
   volatile_packet.SOT = 0; 
   volatile_packet.timestamp = 0;
@@ -486,7 +486,7 @@ void canFilter()
     if(messageId == TEMPERATURE_ID)
     {
       mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
-      //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
+      //zSerial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
