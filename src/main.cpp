@@ -44,7 +44,6 @@
 CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
 Ticker ticker1Hz; 
-Ticker ticker2Sec;
 
 /* Debug Variables */
 float Debug_accx = 0.0;
