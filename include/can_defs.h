@@ -19,8 +19,8 @@
 #define TEMPERATURE_ID  0x400       // 1by           //4by = engine temp. + cvt temp. + timestamp
 #define CVT_ID          0x401       // 1by
 #define FUEL_ID         0x500       // 2by           //3by = fuel level + timestamp
-#define VOLTAGE_ID      0x502       // 8by
-#define CURRENT_ID      0x505       // 8by 
+#define VOLTAGE_ID      0x502       // 4by
+#define CURRENT_ID      0x505       // 4by 
 #define LAT_ID          0x600       // 8by
 #define LNG_ID          0x700       // 8by
 
