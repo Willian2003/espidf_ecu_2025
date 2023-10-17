@@ -453,7 +453,7 @@ void canFilter()
     /* Battery management DATA */
     if(messageId == VOLTAGE_ID)
     {
-      memcpy(&volatile_packet.volt, (double *)messageData, len); 
+      memcpy(&volatile_packet.volt, (float *)messageData, len); 
       //Serial.printf("\r\nVoltage = %lf\r\n", volatile_packet.volt);
     }
 
@@ -465,7 +465,7 @@ void canFilter()
 
     if(messageId == CURRENT_ID)
     {
-      memcpy(&volatile_packet.current, (double *)messageData, len);
+      memcpy(&volatile_packet.current, (float *)messageData, len);
       //Serial.printf("\r\nCurrent = %lf\r\n", volatile_packet.current);
     }
 

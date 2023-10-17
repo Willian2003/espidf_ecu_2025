@@ -20,20 +20,20 @@ typedef struct
 typedef struct
 {
     /* BMU DATAS */
-    double volt;
+    float volt;
     uint8_t SOC;
-    double current;
+    uint8_t cvt;
+    uint16_t fuel;
+    float current;
     /* REAR DATAS */
-    uint16_t fuel; // actually in BMU
-    uint8_t cvt; // actually in BMU
     uint8_t temperature;
     uint16_t rpm;
+    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     /* FRONT DATAS */
     imu_dps_t imu_dps;
     imu_acc_t imu_acc;
     uint16_t speed;
     /* FLAGS */
-    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
     uint8_t SOT;   // NC | NC | NC | DEVAGAR | PISAR | COMB_STOP | BOX_MSG | ON=1/OF=0
     /* GPS DATAS */
     double latitude;
