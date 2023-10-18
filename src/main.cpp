@@ -158,18 +158,21 @@ void setupVolatilePacket()
   volatile_packet.imu_dps.dps_x = 0;
   volatile_packet.imu_dps.dps_y = 0;
   volatile_packet.imu_dps.dps_z = 0;
+  volatile_packet.Angle.Roll = 0;
+  volatile_packet.Angle.Pitch = 0;
   volatile_packet.rpm = 0;
   volatile_packet.speed = 0;
   volatile_packet.temperature = 0;
+  volatile_packet.flags = 0;
+  volatile_packet.SOC = 0;
   volatile_packet.cvt = 0;
   volatile_packet.fuel = 0;
   volatile_packet.volt = 0;
   volatile_packet.current = 0;
   volatile_packet.latitude = -12.70814; 
-  volatile_packet.longitude = -38.1732;
-  volatile_packet.flags = 0;
-  volatile_packet.SOT = 0; 
+  volatile_packet.longitude = -38.1732; 
   volatile_packet.timestamp = 0;
+  volatile_packet.SOT = 0;
 }
 
 void taskSetup()
@@ -223,13 +226,13 @@ void RingBuffer_state()
       byte sot[8];
       sot[0] = volatile_packet.SOT; // 1 byte
 
-      /* Send CAN message */
+      /* Send State of Telemetry message */
       if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
       {
         //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
         //if(volatile_packet.SOT!=0)
         //{
-          //readmsg_reset(volatile_packet.SOT);
+        //  readmsg_reset(volatile_packet.SOT);
         //}
       }
 
@@ -241,10 +244,10 @@ void RingBuffer_state()
       send_lat[0] = volatile_packet.latitude;  // 8 bytes
       send_lng[0] = volatile_packet.longitude; // 8 bytes
 
-      /* Send CAN message */
+      /* Send latitude message */
       if(CAN.sendMsgBuf(LAT_ID, false, 8, send_lat)==CAN_OK) 
       {
-        //Send the message only the latitude has successful 
+        //Send the longitude message only the latitude has successful 
         //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
         CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
       }
@@ -260,31 +263,32 @@ void RingBuffer_state()
   }
 }
 
-void readmsg_reset(uint8_t message)
+void readmsg_reset(/* Dont using this function yet */uint8_t message)
 {
   switch(message)
   {
     case BOX_MSG:
         /* 00000010 */             /* 00000001 */
         volatile_packet.SOT >>= 1; // return to value 0x01
-      break;
+        break;
 
     case COMB_STOP:
-      /* 00000101 */                  /* 00000001 */
-      volatile_packet.SOT &= ~(0x02); // return to value 0x01
-      break;
+        /* 00000101 */                  /* 00000001 */
+        volatile_packet.SOT &= ~(0x02); // return to value 0x01
+        break;
 
     case FAST:
-      /* 00001000 */              /* 00000001 */
-      volatile_packet.SOT >>= 2;  // return to value 0x01
-      break;
+        /* 00001000 */              /* 00000001 */
+        volatile_packet.SOT >>= 2;  // return to value 0x01
+        break;
 
     case SLOW:
-      /* 00001001 */                   /* 00000001 */
-      volatile_packet.SOT &= ~(0x04);  // return to value 0x01
-      break;
+        /* 00001001 */                   /* 00000001 */
+        volatile_packet.SOT &= ~(0x04);  // return to value 0x01
+        break;
     
     default:
+        /* SOT == 0x01, do nothing */
       break;
   }
 }
@@ -367,6 +371,10 @@ String packetToString()
       dataString += ",";
       dataString += "DPSZ";
       dataString += ",";
+      dataString += "ROLL";
+      dataString += ",";
+      dataString += "PITCH";
+      dataString += ",";
       dataString += "RPM";
       dataString += ",";
       dataString += "VEL";
@@ -384,6 +392,10 @@ String packetToString()
       dataString += "CURRENT";
       dataString += ",";
       dataString += "FLAGS";
+      dataString += ",";
+      dataString += "LATITUDE";
+      dataString += ",";
+      dataString += "LONGITUDE";
       dataString += ",";
       dataString += "TIMESTAMP";
     }
@@ -403,6 +415,10 @@ String packetToString()
       dataString += String(volatile_packet.imu_dps.dps_y);
       dataString += ",";
       dataString += String(volatile_packet.imu_dps.dps_z);
+      dataString += ",";
+      dataString += String(volatile_packet.Angle.Roll);
+      dataString += ",";
+      dataString += String(volatile_packet.Angle.Pitch);
       
       dataString += ",";
       dataString += String(volatile_packet.rpm);
@@ -422,6 +438,10 @@ String packetToString()
       dataString += String(volatile_packet.current);
       dataString += ",";
       dataString += String(volatile_packet.flags);
+      dataString += ",";
+      dataString += String(volatile_packet.latitude);
+      dataString += ",";
+      dataString += String(volatile_packet.longitude);
       dataString += ",";
       dataString += String(volatile_packet.timestamp);
     }
@@ -522,6 +542,13 @@ void canFilter()
       //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
       //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
       //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
+    }
+
+    if(messageId == ANGLE_ID)
+    {
+      memcpy(&volatile_packet.Angle, (Angle_t *)messageData, len);
+      //Serial.printf("\r\nAngle Roll = %d\r\n", volatile_packet.Angle.Roll);
+      //Serial.printf("\r\nAngle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
     }
 
     /* GPS/TELEMETRY DATA */
@@ -698,13 +725,16 @@ void publishPacket()
   doc["dpsx"] = volatile_packet.imu_dps.dps_x;
   doc["dpsy"] = volatile_packet.imu_dps.dps_y;
   doc["dpsz"] = volatile_packet.imu_dps.dps_z;
+  doc["Roll"] = volatile_packet.Angle.Roll;
+  doc["Pitch"] = volatile_packet.Angle.Pitch;
   doc["rpm"] = volatile_packet.rpm;
   doc["speed"] = volatile_packet.speed;
   doc["motor"] = volatile_packet.temperature; 
   doc["flags"] = volatile_packet.flags; 
   doc["soc"] = volatile_packet.SOC; 
   doc["cvt"] = volatile_packet.cvt; 
-  doc["volt"] = volatile_packet.volt;  
+  doc["volt"] = volatile_packet.volt;
+  doc["current"] = volatile_packet.current;
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
   doc["fuel_level"] = volatile_packet.fuel;
