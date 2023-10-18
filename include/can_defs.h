@@ -12,6 +12,7 @@
 #define FLAGS_ID        0x101       // 1by
 #define IMU_ACC_ID      0x200       // 6by           //8by = accelerometer data (3D) + timestamp
 #define IMU_DPS_ID      0x201       // 6by           //8by = gyroscope data (3D) + timestamp 
+#define ANGLE_ID        0X205       // 4by
 #define SPEED_ID        0x300       // 2by           //4by = speed(2by) + timestamp
 #define SOC_ID          0x302       // 1by
 #define RPM_ID          0x304       // 2by           //4by = rpm + timestamp
