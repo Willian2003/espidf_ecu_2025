@@ -113,7 +113,7 @@ void setup()
   Serial.println("Connecting CAN...");
   while((millis() - tcanStart) < cantimeOut) // wait timeout
   { 
-    if(CAN_OK == CAN.begin(CAN_1000KBPS, MCP_8MHz))
+    if(CAN.begin(CAN_1000KBPS, MCP_8MHz) == CAN_OK)
     {
       Serial.println("CAN init ok!!!");
       flagCANInit = true; // Marks the flag that indicates correct CAN initialization
@@ -454,7 +454,7 @@ void canFilter()
 {
   //mode = !mode;
   //digitalWrite(EMBEDDED_LED, mode);
-  while(CAN_MSGAVAIL == CAN.checkReceive())
+  while(CAN.checkReceive() == CAN_MSGAVAIL)
   {
     //Serial.println("ok!");
     mode = !mode;
@@ -464,7 +464,8 @@ void canFilter()
     uint32_t messageId;
     unsigned char len = 0;
 
-    CAN.readMsgBuf(&len, messageData); // Reads message
+    // Reads message and ID
+    CAN.readMsgBuf(&len, messageData); 
     messageId = CAN.getCanId();
 
     /* Debug DATA */
@@ -474,7 +475,7 @@ void canFilter()
     if(messageId == VOLTAGE_ID)
     {
       memcpy(&volatile_packet.volt, (float *)messageData, len); 
-      //Serial.printf("\r\nVoltage = %lf\r\n", volatile_packet.volt);
+      //Serial.printf("\r\nVoltage = %f\r\n", volatile_packet.volt);
     }
 
     if(messageId == SOC_ID)
@@ -486,7 +487,7 @@ void canFilter()
     if(messageId == CURRENT_ID)
     {
       memcpy(&volatile_packet.current, (float *)messageData, len);
-      //Serial.printf("\r\nCurrent = %lf\r\n", volatile_packet.current);
+      //Serial.printf("\r\nCurrent = %f\r\n", volatile_packet.current);
     }
 
     /* Rear DATA */
@@ -505,7 +506,7 @@ void canFilter()
     if(messageId == TEMPERATURE_ID)
     {
       mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
-      //zSerial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
+      //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
