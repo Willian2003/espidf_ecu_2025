@@ -14,9 +14,9 @@
 #include "saving.h"
 
 /* Credentials Variables */
-#define TIM     // Uncomment this line and comment the others if this is your chip
+//#define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
-//#define VIVO    // Uncomment this line and comment the others if this is your chip
+#define VIVO    // Uncomment this line and comment the others if this is your chip
 
 // GPRS credentials
 #ifdef TIM
@@ -83,7 +83,6 @@ void taskSetup();
 /* SD State Machine Global Functions */         
 // CAN transmitter function
 void RingBuffer_state();
-void readmsg_reset(uint8_t message);
 // SD Functions
 void sdConfig();
 void sdSave();
@@ -230,10 +229,6 @@ void RingBuffer_state()
       if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
       {
         //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
-        //if(volatile_packet.SOT!=0)
-        //{
-        //  readmsg_reset(volatile_packet.SOT);
-        //}
       }
 
       break;
@@ -259,36 +254,6 @@ void RingBuffer_state()
       //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
       //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
       //Serial.printf("\r\nLongitude = %lf\r\n", volatile_packet.longitude);
-      break;
-  }
-}
-
-void readmsg_reset(/* Dont using this function yet */uint8_t message)
-{
-  switch(message)
-  {
-    case BOX_MSG:
-        /* 00000010 */             /* 00000001 */
-        volatile_packet.SOT >>= 1; // return to value 0x01
-        break;
-
-    case COMB_STOP:
-        /* 00000101 */                  /* 00000001 */
-        volatile_packet.SOT &= ~(0x02); // return to value 0x01
-        break;
-
-    case FAST:
-        /* 00001000 */              /* 00000001 */
-        volatile_packet.SOT >>= 2;  // return to value 0x01
-        break;
-
-    case SLOW:
-        /* 00001001 */                   /* 00000001 */
-        volatile_packet.SOT &= ~(0x04);  // return to value 0x01
-        break;
-    
-    default:
-        /* SOT == 0x01, do nothing */
       break;
   }
 }
@@ -738,7 +703,7 @@ void publishPacket()
   doc["current"] = volatile_packet.current; 
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
-  //doc["fuel_level"] = volatile_packet.fuel;
+  doc["fuel_level"] = volatile_packet.fuel;
   //doc["timestamp"] = millis();
   //doc["fuel_level"] = volatile_packet.fuel;
   //doc["timestamp"] = volatile_packet.timestamp;
@@ -759,6 +724,6 @@ void ticker1HzISR()
 {
   saveFlag = true;
   state_buffer.push(SOT_ST);
-  state_buffer.push(GPS_ST);
+  //state_buffer.push(GPS_ST);
   //state_buffer.push(DEBUG_ST);
 }
