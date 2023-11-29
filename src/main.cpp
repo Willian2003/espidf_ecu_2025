@@ -1,12 +1,14 @@
 #include <Arduino.h>
+/* ESP Tools Libraries */
 #include <Ticker.h>
 #include <SD.h>
 #include <CircularBuffer.h>
+/* Communication Libraries */
 #include <mcp2515_can.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
-#include <TinyGPSPlus.h>
+/* User Libraries */
 #include "can_defs.h"
 #include "middle_defs.h"
 #include "hardware_defs.h"
@@ -36,14 +38,11 @@
   const char simPIN[] = "8486";          // SIM cad PIN code, id any
 #endif
 
-/* General Libraries */
-//HardwareSerial neogps(1);
-//TinyGPSPlus gps;
-
 /* ESP Tools */
 CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
 Ticker ticker1Hz; 
+Ticker ticker40Hz;
 
 /* Debug Variables */
 float Debug_accx = 0.0;
@@ -76,22 +75,19 @@ void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
 void IRAM_ATTR can_ISR();
 void ticker1HzISR();
+void ticker40HzISR();
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
 void taskSetup(); 
 /* SD State Machine Global Functions */         
-// CAN transmitter function
 void RingBuffer_state();
-// SD Functions
 void sdConfig();
 void sdSave();
 String packetToString();
 int countFiles(File dir);
-// CAN receiver function
 void canFilter();
 /* Connectivity State Machine Global Functions */
-// GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
 void publishPacket();
@@ -100,7 +96,6 @@ void setup()
 {
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-  //neogps.begin(9600, SERIAL_8N1, GPSRX, GPSRX);
   
   pinConfig(); // Hardware and Interrupt Config
   
@@ -132,6 +127,7 @@ void setup()
   taskSetup();           // Tasks
 
   ticker1Hz.attach(1, ticker1HzISR);
+  ticker40Hz.attach(1.0/40, ticker40HzISR);
 }
 
 void loop() {/* Dont Write here */} 
@@ -179,7 +175,7 @@ void taskSetup()
   xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
   // This state machine is responsible for the Basic CAN logging
   xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
-  // This state machine is responsible for the GPRS, GPS and possible bluetooth connection
+  // This state machine is responsible for the GPRS and possible bluetooth connection
 }
 
 /* SD State Machine */
@@ -229,22 +225,6 @@ void RingBuffer_state()
       if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
       {
         //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
-      }
-
-      break;
-
-    case GPS_ST:
-      //Serial.println("gps");
-      byte send_lat[8], send_lng[8];
-      send_lat[0] = volatile_packet.latitude;  // 8 bytes
-      send_lng[0] = volatile_packet.longitude; // 8 bytes
-
-      /* Send latitude message */
-      if(CAN.sendMsgBuf(LAT_ID, false, 8, send_lat)==CAN_OK) 
-      {
-        //Send the longitude message only the latitude has successful 
-        //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
-        CAN.sendMsgBuf(LNG_ID, false, 8, send_lng);
       }
 
       break;
@@ -722,8 +702,11 @@ void IRAM_ATTR can_ISR()
 
 void ticker1HzISR()
 {
-  saveFlag = true;
   state_buffer.push(SOT_ST);
-  //state_buffer.push(GPS_ST);
   //state_buffer.push(DEBUG_ST);
+}
+
+void ticker40HzISR()
+{
+  saveFlag = true;
 }
