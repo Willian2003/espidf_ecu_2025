@@ -16,11 +16,11 @@
 #include "saving.h"
 
 /* Credentials Variables */
-//#define TIM     // Uncomment this line and comment the others if this is your chip
+#define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
-#define VIVO    // Uncomment this line and comment the others if this is your chip
+//#define VIVO    // Uncomment this line and comment the others if this is your chip
 
-// GPRS credentials
+/* GPRS credentials */
 #ifdef TIM
   const char apn[] = "timbrasil.br";    // Your APN
   const char gprsUser[] = "tim";        // User
@@ -36,6 +36,11 @@
   const char gprsUser[] = "vivo";        // User
   const char gprsPass[] = "vivo";        // Password
   const char simPIN[] = "8486";          // SIM cad PIN code, id any
+#else
+  const char apn[] = "timbrasil.br";    // Your APN
+  const char gprsUser[] = "tim";        // User
+  const char gprsPass[] = "tim";        // Password
+  const char simPIN[] = "1010";         // SIM card PIN code, if any
 #endif
 
 /* ESP Tools */
@@ -45,9 +50,6 @@ Ticker ticker1Hz;
 Ticker ticker40Hz;
 
 /* Debug Variables */
-float Debug_accx = 0.0;
-bool buffer_full = false;
-bool mounted = false; // SD mounted flag
 bool savingBlink = false;
 /* Global Variables */
 const char *server = "64.227.19.172";
@@ -56,7 +58,6 @@ char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
-boolean flagCANInit = false;
 
 // ESP hotspot definitions
 const char *host = "esp32";                   // Here's your "host device name"
@@ -84,7 +85,7 @@ void taskSetup();
 void RingBuffer_state();
 void sdConfig();
 void sdSave();
-String packetToString();
+String packetToString(bool err = true);
 int countFiles(File dir);
 void canFilter();
 /* Connectivity State Machine Global Functions */
@@ -99,6 +100,7 @@ void setup()
   
   pinConfig(); // Hardware and Interrupt Config
   
+  boolean flagCANInit = false;
   unsigned long tcanStart = 0, cantimeOut = 0;
   tcanStart = millis();
   cantimeOut = 1000; // (1 second)
@@ -107,7 +109,7 @@ void setup()
   Serial.println("Connecting CAN...");
   while((millis() - tcanStart) < cantimeOut) // wait timeout
   { 
-    if(CAN.begin(CAN_1000KBPS, MCP_8MHz) == CAN_OK)
+    if(CAN.begin(CAN_1000KBPS, MCP_8MHz)==CAN_OK)
     {
       Serial.println("CAN init ok!!!");
       flagCANInit = true; // Marks the flag that indicates correct CAN initialization
@@ -126,8 +128,8 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
 
-  ticker1Hz.attach(1, ticker1HzISR);
-  ticker40Hz.attach(1.0/40, ticker40HzISR);
+  ticker1Hz.attach(1.0, ticker1HzISR);
+  ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
 void loop() {/* Dont Write here */} 
@@ -136,9 +138,9 @@ void loop() {/* Dont Write here */}
 void pinConfig()
 {
   // Pins
-  pinMode(EMBEDDED_LED, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
-  pinMode(CAN_INTERRUPT, INPUT_PULLUP);
+  //pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   // pinMode(MODEM_RST, OUTPUT);
   // digitalWrite(MODEM_RST, HIGH);
   
@@ -167,7 +169,7 @@ void setupVolatilePacket()
   volatile_packet.latitude = -12.70814; 
   volatile_packet.longitude = -38.1732; 
   volatile_packet.timestamp = 0;
-  volatile_packet.SOT = 0;
+  volatile_packet.SOT = DISCONNECTED;
 }
 
 void taskSetup()
@@ -198,6 +200,8 @@ void SdStateMachine(void *pvParameters)
 // CAN transmitter function
 void RingBuffer_state()
 {
+  static bool buffer_full = false;
+
   if(state_buffer.isFull())
   {
     buffer_full=true;
@@ -241,6 +245,8 @@ void RingBuffer_state()
 // SD Functions
 void sdConfig()
 {
+  static bool mounted = false; // SD mounted flag
+
   if (!mounted)
   {
     if(!SD.begin(SD_CS)) { return; } 
@@ -253,7 +259,7 @@ void sdConfig()
 
     if(dataFile)
     {
-      dataFile.println(packetToString());
+      dataFile.println(packetToString(mounted));
       dataFile.close();
     } else {
       digitalWrite(DEBUG_LED, HIGH);
@@ -299,10 +305,10 @@ void sdSave()
   }
 }
 
-String packetToString()
+String packetToString(bool err)
 {
   String dataString = "";
-    if(!mounted)
+    if(!err)
     {
       dataString += "ACCX";
       dataString += ",";
@@ -349,7 +355,7 @@ String packetToString()
     {
       // imu
       //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
-      dataString += String(Debug_accx);
+      dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
       dataString += ",";
       dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
       dataString += ",";
@@ -476,7 +482,7 @@ void canFilter()
     if(messageId == IMU_ACC_ID)
     {
       memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
-      Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
+      //Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
       //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
       //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
       //Serial.printf("\r\nAccz = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
@@ -588,7 +594,7 @@ void ConnStateMachine(void *pvParameters)
   {
     if(!mqttClient.connected())
     {
-      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+      volatile_packet.SOT = DISCONNECTED; // disable online flag (00000000)
       gsmReconnect();
     }
 
@@ -646,33 +652,32 @@ void gsmReconnect()
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
-      volatile_packet.SOT |= 0x01; // enable online flag (00000001)
+      volatile_packet.SOT |= CONNECTED; // enable online flag (00000001)
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
-      digitalWrite(LED_BUILTIN, HIGH);
+      //digitalWrite(LED_BUILTIN, HIGH);
     } else {
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
-      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+      volatile_packet.SOT &= ~(CONNECTED); // disable online flag (00000000)
       delay(2000); 
     }
   }
 }
 
-void publishPacket()
+void publishPacket()  
 {
   StaticJsonDocument<300> doc;
 
-  //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
-  doc["accx"] = Debug_accx;
+  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
   doc["dpsx"] = volatile_packet.imu_dps.dps_x;
   doc["dpsy"] = volatile_packet.imu_dps.dps_y;
   doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  //doc["roll"] = volatile_packet.Angle.Roll;
-  //doc["pitch"] = volatile_packet.Angle.Pitch;
+  doc["roll"] = volatile_packet.Angle.Roll;
+  doc["pitch"] = volatile_packet.Angle.Pitch;
   doc["rpm"] = volatile_packet.rpm;
   doc["speed"] = volatile_packet.speed;
   doc["motor"] = volatile_packet.temperature;
@@ -685,8 +690,8 @@ void publishPacket()
   doc["longitude"] = volatile_packet.longitude;
   doc["fuel_level"] = volatile_packet.fuel;
   //doc["timestamp"] = millis();
-  //doc["fuel_level"] = volatile_packet.fuel;
-  //doc["timestamp"] = volatile_packet.timestamp;
+  doc["fuel_level"] = volatile_packet.fuel;
+  doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
