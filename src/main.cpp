@@ -4,7 +4,7 @@
 #include <SD.h>
 #include <CircularBuffer.h>
 /* Communication Libraries */
-#include <mcp2515_can.h>
+//#include <mcp2515_can.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
@@ -48,6 +48,7 @@ CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
 Ticker ticker1Hz; 
 Ticker ticker40Hz;
+CAN_frame_t tx_frame;
 
 /* Debug Variables */
 bool savingBlink = false;
@@ -66,7 +67,6 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
-int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
 
@@ -74,7 +74,6 @@ bool saveFlag = false;
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
-void IRAM_ATTR can_ISR();
 void ticker1HzISR();
 void ticker40HzISR();
 /* Setup Descriptions */
@@ -99,37 +98,22 @@ void setup()
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   
   pinConfig(); // Hardware and Interrupt Config
-  
-  boolean flagCANInit = false;
-  unsigned long tcanStart = 0, cantimeOut = 0;
-  tcanStart = millis();
-  cantimeOut = 1000; // (1 second)
-  // wait for the CAN shield to initialize
 
-  Serial.println("Connecting CAN...");
-  while((millis() - tcanStart) < cantimeOut) // wait timeout
-  { 
-    if(CAN.begin(CAN_1000KBPS, MCP_8MHz)==CAN_OK)
-    {
-      Serial.println("CAN init ok!!!");
-      flagCANInit = true; // Marks the flag that indicates correct CAN initialization
-      break; // get out of the loop
-    }
-    flagCANInit = false; // Mark the flag that indicates there was a problem initializing the CAN
-  }
+  /* CAN-BUS initialize */
+  CAN_cfg.speed = CAN_SPEED_1000KBPS;
+  CAN_cfg.tx_pin_id = CAN_TX_id;
+  CAN_cfg.rx_pin_id = CAN_RX_id;
+  CAN_cfg.rx_queue = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
+  ESP32Can.CANInit();
 
-  // if there was an error in the CAN it shows
-  if(!flagCANInit)
-  {
-    Serial.println("CAN error!!!");
-    esp_restart();
-  }
+  tx_frame.FIR.B.FF = CAN_frame_std;
+  tx_frame.FIR.B.DLC = 8;
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
 
   ticker1Hz.attach(1.0, ticker1HzISR);
-  ticker40Hz.attach(0.025, ticker40HzISR);
+  //ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
 void loop() {/* Dont Write here */} 
@@ -222,13 +206,14 @@ void RingBuffer_state()
     
     case SOT_ST:
       //Serial.println("sot");
-      byte sot[8];
-      sot[0] = volatile_packet.SOT; // 1 byte
+      tx_frame.data.u8[0] = volatile_packet.SOT; // 1 byte
 
       /* Send State of Telemetry message */
-      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
+      tx_frame.MsgID = SOT_ID;
+
+      if(ESP32Can.CANWriteFrame(&tx_frame)==OK)
       {
-        //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
+        Serial.println(volatile_packet.SOT);
       }
 
       break;
@@ -403,85 +388,81 @@ String packetToString(bool err)
 // CAN receiver function
 void canFilter()
 {
-  //mode = !mode;
-  //digitalWrite(EMBEDDED_LED, mode);
-  while(CAN.checkReceive() == CAN_MSGAVAIL)
+  CAN_frame_t rx_frame;
+
+  while(xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3*portTICK_PERIOD_MS)==pdTRUE)
   {
-    //Serial.println("ok!");
-    mode = !mode;
-    digitalWrite(EMBEDDED_LED, mode);
+    mode = !mode; digitalWrite(EMBEDDED_LED, mode);
 
-    byte messageData[8];
-    uint32_t messageId;
-    unsigned char len = 0;
+    /* Read the ID message */
+    uint32_t messageId = rx_frame.MsgID;
 
-    // Reads message and ID
-    CAN.readMsgBuf(&len, messageData); 
-    messageId = CAN.getCanId();
+    /* Length of the message */
+    uint8_t len = 8;
 
-    /* Debug DATA */
+    /* Debug data */
     volatile_packet.timestamp = millis();
 
     /* Battery management DATA */
     if(messageId == VOLTAGE_ID)
     {
-      memcpy(&volatile_packet.volt, (float *)messageData, len); 
+      memcpy(&volatile_packet.volt, (float *)rx_frame.data.u8, len); 
       //Serial.printf("\r\nVoltage = %f\r\n", volatile_packet.volt);
     }
 
     if(messageId == SOC_ID)
     {
-      memcpy(&volatile_packet.SOC, (uint8_t *)messageData, len);
+      memcpy(&volatile_packet.SOC, (uint8_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
     }
 
     if(messageId == CURRENT_ID)
     {
-      memcpy(&volatile_packet.current, (float *)messageData, len);
+      memcpy(&volatile_packet.current, (float *)rx_frame.data.u8, len);
       //Serial.printf("\r\nCurrent = %f\r\n", volatile_packet.current);
     }
 
     /* Rear DATA */
     if(messageId == CVT_ID) // Old BMU
-     {
-      memcpy(&volatile_packet.cvt, (uint8_t *)messageData, len);
+      {
+      memcpy(&volatile_packet.cvt, (uint8_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
     if(messageId == FUEL_ID) // Old BMU
     {
-      memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
+      memcpy(&volatile_packet.fuel, (uint16_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
     }
 
     if(messageId == TEMPERATURE_ID)
     {
-      mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
+      mempcpy(&volatile_packet.temperature, (uint8_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
     {
-      mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
+      mempcpy(&volatile_packet.flags, (uint8_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
     if(messageId == RPM_ID)
     {
-      mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
+      mempcpy(&volatile_packet.rpm, (uint16_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
     if(messageId == SPEED_ID)
     {
-      mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
+      mempcpy(&volatile_packet.speed, (uint16_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     }  
 
     if(messageId == IMU_ACC_ID)
     {
-      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
+      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rx_frame.data.u8, len);
       //Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
       //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
       //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
@@ -490,7 +471,7 @@ void canFilter()
 
     if(messageId == IMU_DPS_ID)
     {
-      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
+      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
       //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
       //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
@@ -498,7 +479,7 @@ void canFilter()
 
     if(messageId == ANGLE_ID)
     {
-      memcpy(&volatile_packet.Angle, (Angle_t *)messageData, len);
+      memcpy(&volatile_packet.Angle, (Angle_t *)rx_frame.data.u8, len);
       //Serial.printf("\r\nAngle Roll = %d\r\n", volatile_packet.Angle.Roll);
       //Serial.printf("\r\nAngle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
     }
@@ -506,22 +487,34 @@ void canFilter()
     /* GPS/TELEMETRY DATA */
     if(messageId == LAT_ID)
     {
-      memcpy(&volatile_packet.latitude, (double *)messageData, len);
+      memcpy(&volatile_packet.latitude, (double *)rx_frame.data.u8, len);
       //Serial.println(volatile_packet.latitude);
     }
 
     if(messageId == LNG_ID)
     {
-      memcpy(&volatile_packet.longitude, (double *)messageData, len);
+      memcpy(&volatile_packet.longitude, (double *)rx_frame.data.u8, len);
       //Serial.println(volatile_packet.longitude);
     }
 
     if(messageId == SOT_ID)
     {
-      memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
+      memcpy(&volatile_packet.SOT, (uint8_t *)rx_frame.data.u8, len);
       //Serial.println(volatile_packet.SOT);
     }
   }
+
+  //int t2 = micros();
+  //Serial.printf("Recieve by CAN: id 0x%08X\t", rx_frame.MsgID);
+
+  /* Print for debug */
+  //if(rx_frame.MsgID==VOLTAGE_ID)
+  //{
+  //  for(int i = 0; i < rx_frame.FIR.B.DLC; i++)
+  //  {
+  //    Serial.printf("0x%02X ", rx_frame.data.u8[i]);
+  //  }
+  //}
 }
 
 /* Connectivity State Machine */
@@ -613,7 +606,7 @@ void ConnStateMachine(void *pvParameters)
     }*/
 
     mqttClient.loop();
-    vTaskDelay(1);
+  vTaskDelay(1);
   }
 }
 
@@ -699,12 +692,6 @@ void publishPacket()
 }
 
 /* Interrupts routine */
-void IRAM_ATTR can_ISR()
-{
-  detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
-  l_state = CAN_STATE;
-}
-
 void ticker1HzISR()
 {
   state_buffer.push(SOT_ST);
