@@ -21,9 +21,6 @@
 /* CAN PINS */ 
 #define CAN_RX_id     GPIO_NUM_21  
 #define CAN_TX_id     GPIO_NUM_22
-// MCP2515
-//#define CAN_CS        GPIO_NUM_4
-//#define CAN_INTERRUPT GPIO_NUM_22
 
 /* GPRS */
 #define MODEM_RST
