@@ -4,15 +4,11 @@
 #include <SD.h>
 #include <CircularBuffer.h>
 /* Communication Libraries */
-//#include <mcp2515_can.h>
-#include <WiFi.h>
-#include <ESPmDNS.h>
-#include <ArduinoJson.h>
-/* User Libraries */
 #include "can_defs.h"
+#include "gprs_defs.h"
+/* User Libraries */
 #include "middle_defs.h"
 #include "hardware_defs.h"
-#include "gprs_defs.h"
 #include "saving.h"
 
 /* Credentials Variables */
@@ -48,7 +44,9 @@ CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
 Ticker ticker1Hz; 
 Ticker ticker40Hz;
-CAN_frame_t tx_frame;
+
+/* Create a variable to send the message */
+CAN_frame_t tx_frame; 
 
 /* Debug Variables */
 bool savingBlink = false;
@@ -80,14 +78,18 @@ void ticker40HzISR();
 void pinConfig();    
 void setupVolatilePacket();
 void taskSetup(); 
-/* SD State Machine Global Functions */         
-void RingBuffer_state();
+/* SD State Machine Global Functions */
+  // CAN transmitter function         
+void RingBuffer_state();    
+  // SD Functions
 void sdConfig();
 void sdSave();
 String packetToString(bool err = true);
 int countFiles(File dir);
-void canFilter();
+  // CAN receiver function
+void canFilter();   
 /* Connectivity State Machine Global Functions */
+  // GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
 void publishPacket();
@@ -103,9 +105,15 @@ void setup()
   CAN_cfg.speed = CAN_SPEED_1000KBPS;
   CAN_cfg.tx_pin_id = CAN_TX_id;
   CAN_cfg.rx_pin_id = CAN_RX_id;
-  CAN_cfg.rx_queue = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
-  ESP32Can.CANInit();
+  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
 
+  if(ESP32Can.CANInit()!=OK)
+  {
+    Serial.println(F("CAN ERROR!!!"));
+    ESP.restart();
+  }
+
+  /* Determinate the CAN sender type and length */
   tx_frame.FIR.B.FF = CAN_frame_std;
   tx_frame.FIR.B.DLC = 8;
 
@@ -113,7 +121,7 @@ void setup()
   taskSetup();           // Tasks
 
   ticker1Hz.attach(1.0, ticker1HzISR);
-  //ticker40Hz.attach(0.025, ticker40HzISR);
+  ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
 void loop() {/* Dont Write here */} 
@@ -213,7 +221,8 @@ void RingBuffer_state()
 
       if(ESP32Can.CANWriteFrame(&tx_frame)==OK)
       {
-        Serial.println(volatile_packet.SOT);
+        CLEAR(tx_frame.data.u8);
+        //Serial.println(volatile_packet.SOT);
       }
 
       break;
@@ -258,7 +267,7 @@ void sdConfig()
 int countFiles(File dir)
 {
   int fileCountOnSD = 0; // for counting files
-  while(true)
+  for(;;)
   {
     File entry = dir.openNextFile();
     if (!entry)
@@ -339,7 +348,6 @@ String packetToString(bool err)
     else
     {
       // imu
-      //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
       dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
       dataString += ",";
       dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
@@ -502,19 +510,19 @@ void canFilter()
       memcpy(&volatile_packet.SOT, (uint8_t *)rx_frame.data.u8, len);
       //Serial.println(volatile_packet.SOT);
     }
-  }
 
-  //int t2 = micros();
-  //Serial.printf("Recieve by CAN: id 0x%08X\t", rx_frame.MsgID);
+    //int t2 = micros();
+    //Serial.printf("Recieve by CAN: id 0x%08X\t", rx_frame.MsgID);
 
-  /* Print for debug */
-  //if(rx_frame.MsgID==VOLTAGE_ID)
-  //{
-  //  for(int i = 0; i < rx_frame.FIR.B.DLC; i++)
-  //  {
-  //    Serial.printf("0x%02X ", rx_frame.data.u8[i]);
-  //  }
-  //}
+    /* Print for debug */
+    //if(rx_frame.MsgID==VOLTAGE_ID)
+    //{
+    //  for(int i = 0; i < rx_frame.FIR.B.DLC; i++)
+    //  {
+    //    Serial.printf("0x%02X ", rx_frame.data.u8[i]);
+    //  }
+    //}
+  }  
 }
 
 /* Connectivity State Machine */
@@ -587,31 +595,19 @@ void ConnStateMachine(void *pvParameters)
   {
     if(!mqttClient.connected())
     {
-      volatile_packet.SOT = DISCONNECTED; // disable online flag (00000000)
+      volatile_packet.SOT = DISCONNECTED; // disable online flag 
       gsmReconnect();
     }
 
     publishPacket();
 
-    /*for (unsigned long start = millis(); millis() - start < timeoutTime;)
-    {
-      while (neogps.available())
-      {
-        if (gps.encode(neogps.read()))
-        {
-          volatile_packet.latitude = gps.location.lat();
-          volatile_packet.longitude = gps.location.lng();
-        }
-      }
-    }*/
-
     mqttClient.loop();
-  vTaskDelay(1);
+    vTaskDelay(1);
   }
 }
 
 /* Connectivity State Machine Global Functions */
-// GPRS Functions 
+// GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
@@ -645,7 +641,7 @@ void gsmReconnect()
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
-      volatile_packet.SOT |= CONNECTED; // enable online flag (00000001)
+      volatile_packet.SOT |= CONNECTED; // enable online flag 
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -653,7 +649,7 @@ void gsmReconnect()
     } else {
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
-      volatile_packet.SOT &= ~(CONNECTED); // disable online flag (00000000)
+      volatile_packet.SOT &= ~(CONNECTED); // disable online flag 
       delay(2000); 
     }
   }
