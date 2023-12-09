@@ -1,7 +1,7 @@
 #ifndef CAN_DEFS_H_
 #define CAN_DEFS_H_
 
-// IDs
+/* IDs */
 #define BUFFER_SIZE     50
 #define THROTTLE_MID    0x00
 #define THROTTLE_RUN    0x01
@@ -30,9 +30,20 @@
 #define MSG_QUEUE_LEN 5
 #define CAN_2515
 
-#include "mcp2515_can.h"
+//#include "mcp2515_can.h"
+#include <ESP32CAN.h>
+#include <CAN_config.h>
 #include "hardware_defs.h"
 
-mcp2515_can CAN(CAN_CS);
+#define OK    0
+#define FAIL -1
+
+//mcp2515_can CAN(CAN_CS);
+
+/*=====================================================================================*/
+ CAN_device_t CAN_cfg;             // CAN Config
+ unsigned long previousMillis = 0; // will store last time a CAN Message was send
+ const int rx_queue_size = 4096;   // Receive Queue size
+/*=====================================================================================*/
 
 #endif
