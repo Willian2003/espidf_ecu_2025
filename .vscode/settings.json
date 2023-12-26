@@ -21,6 +21,8 @@
         "string_view": "cpp",
         "initializer_list": "cpp",
         "utility": "cpp",
-        "cstring": "cpp"
+        "cstring": "cpp",
+        "esp_intr.h": "c",
+        "esp_intr_alloc.h": "c"
     }
 }

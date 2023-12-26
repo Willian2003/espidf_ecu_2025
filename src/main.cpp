@@ -45,9 +45,6 @@ state_t current_state = IDLE_ST;
 Ticker ticker1Hz; 
 Ticker ticker40Hz;
 
-/* Create a variable to send the message */
-CAN_frame_t tx_frame; 
-
 /* Debug Variables */
 bool savingBlink = false;
 /* Global Variables */
@@ -80,14 +77,14 @@ void setupVolatilePacket();
 void taskSetup(); 
 /* SD State Machine Global Functions */
   // CAN transmitter function         
-void RingBuffer_state();    
+void RingBuffer_state(CAN_frame_t txMsg);    
   // SD Functions
 void sdConfig();
 void sdSave();
 String packetToString(bool err = true);
 int countFiles(File dir);
   // CAN receiver function
-void canFilter();   
+void canFilter(CAN_frame_t rxMsg);   
 /* Connectivity State Machine Global Functions */
   // GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length);
@@ -105,17 +102,13 @@ void setup()
   CAN_cfg.speed = CAN_SPEED_1000KBPS;
   CAN_cfg.tx_pin_id = CAN_TX_id;
   CAN_cfg.rx_pin_id = CAN_RX_id;
-  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
+  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, 1024); // Create a queue for data receive
 
   if(ESP32Can.CANInit()!=OK)
   {
     Serial.println(F("CAN ERROR!!!"));
     ESP.restart();
   }
-
-  /* Determinate the CAN sender type and length */
-  tx_frame.FIR.B.FF = CAN_frame_std;
-  tx_frame.FIR.B.DLC = 8;
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
@@ -175,22 +168,32 @@ void taskSetup()
 /* SD State Machine */
 void SdStateMachine(void *pvParameters)
 {
+  /* Create a variable to send the message */
+  CAN_frame_t tx_frame; 
+
+  /* Determinate the CAN sender type and length */
+  tx_frame.FIR.B.FF = CAN_frame_std;
+  tx_frame.FIR.B.DLC = 8;
+
+  /* Create a variable to read the message */
+  CAN_frame_t rx_frame;
+
   while(1)
   {
-    RingBuffer_state(); 
+    RingBuffer_state(tx_frame); 
     if(saveFlag)
     {
       sdConfig();
       saveFlag = false;
     }
-    canFilter();
+    canFilter(rx_frame);
     vTaskDelay(1);
   }
 }
 
 /* SD State Machine Global Functions */
 // CAN transmitter function
-void RingBuffer_state()
+void RingBuffer_state(CAN_frame_t txMsg)
 {
   static bool buffer_full = false;
 
@@ -214,14 +217,14 @@ void RingBuffer_state()
     
     case SOT_ST:
       //Serial.println("sot");
-      tx_frame.data.u8[0] = volatile_packet.SOT; // 1 byte
+      txMsg.data.u8[0] = volatile_packet.SOT; // 1 byte
 
       /* Send State of Telemetry message */
-      tx_frame.MsgID = SOT_ID;
+      txMsg.MsgID = SOT_ID;
 
-      if(ESP32Can.CANWriteFrame(&tx_frame)==OK)
+      if(ESP32Can.CANWriteFrame(&txMsg)==OK)
       {
-        CLEAR(tx_frame.data.u8);
+        CLEAR(txMsg.data.u8);
         //Serial.println(volatile_packet.SOT);
       }
 
@@ -394,16 +397,14 @@ String packetToString(bool err)
 }
 
 // CAN receiver function
-void canFilter()
+void canFilter(CAN_frame_t rxMsg)
 {
-  CAN_frame_t rx_frame;
-
-  while(xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3*portTICK_PERIOD_MS)==pdTRUE)
+  while(xQueueReceive(CAN_cfg.rx_queue, &rxMsg, 3*portTICK_PERIOD_MS)==pdTRUE)
   {
     mode = !mode; digitalWrite(EMBEDDED_LED, mode);
 
     /* Read the ID message */
-    uint32_t messageId = rx_frame.MsgID;
+    uint32_t messageId = rxMsg.MsgID;
 
     /* Length of the message */
     uint8_t len = 8;
@@ -414,63 +415,63 @@ void canFilter()
     /* Battery management DATA */
     if(messageId == VOLTAGE_ID)
     {
-      memcpy(&volatile_packet.volt, (float *)rx_frame.data.u8, len); 
+      memcpy(&volatile_packet.volt, (float *)rxMsg.data.u8, len); 
       //Serial.printf("\r\nVoltage = %f\r\n", volatile_packet.volt);
     }
 
     if(messageId == SOC_ID)
     {
-      memcpy(&volatile_packet.SOC, (uint8_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.SOC, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
     }
 
     if(messageId == CURRENT_ID)
     {
-      memcpy(&volatile_packet.current, (float *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.current, (float *)rxMsg.data.u8, len);
       //Serial.printf("\r\nCurrent = %f\r\n", volatile_packet.current);
     }
 
     /* Rear DATA */
     if(messageId == CVT_ID) // Old BMU
       {
-      memcpy(&volatile_packet.cvt, (uint8_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
     if(messageId == FUEL_ID) // Old BMU
     {
-      memcpy(&volatile_packet.fuel, (uint16_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.fuel, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
     }
 
     if(messageId == TEMPERATURE_ID)
     {
-      mempcpy(&volatile_packet.temperature, (uint8_t *)rx_frame.data.u8, len);
+      mempcpy(&volatile_packet.temperature, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
     {
-      mempcpy(&volatile_packet.flags, (uint8_t *)rx_frame.data.u8, len);
+      mempcpy(&volatile_packet.flags, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
     if(messageId == RPM_ID)
     {
-      mempcpy(&volatile_packet.rpm, (uint16_t *)rx_frame.data.u8, len);
+      mempcpy(&volatile_packet.rpm, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
     if(messageId == SPEED_ID)
     {
-      mempcpy(&volatile_packet.speed, (uint16_t *)rx_frame.data.u8, len);
+      mempcpy(&volatile_packet.speed, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     }  
 
     if(messageId == IMU_ACC_ID)
     {
-      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg.data.u8, len);
       //Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
       //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
       //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
@@ -479,7 +480,7 @@ void canFilter()
 
     if(messageId == IMU_DPS_ID)
     {
-      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
       //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
       //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
@@ -487,7 +488,7 @@ void canFilter()
 
     if(messageId == ANGLE_ID)
     {
-      memcpy(&volatile_packet.Angle, (Angle_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nAngle Roll = %d\r\n", volatile_packet.Angle.Roll);
       //Serial.printf("\r\nAngle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
     }
@@ -495,31 +496,31 @@ void canFilter()
     /* GPS/TELEMETRY DATA */
     if(messageId == LAT_ID)
     {
-      memcpy(&volatile_packet.latitude, (double *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.latitude, (double *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.latitude);
     }
 
     if(messageId == LNG_ID)
     {
-      memcpy(&volatile_packet.longitude, (double *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.longitude, (double *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.longitude);
     }
 
     if(messageId == SOT_ID)
     {
-      memcpy(&volatile_packet.SOT, (uint8_t *)rx_frame.data.u8, len);
+      memcpy(&volatile_packet.SOT, (uint8_t *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.SOT);
     }
 
     //int t2 = micros();
-    //Serial.printf("Recieve by CAN: id 0x%08X\t", rx_frame.MsgID);
+    //Serial.printf("Recieve by CAN: id 0x%08X\t", rxMsg.MsgID);
 
     /* Print for debug */
-    //if(rx_frame.MsgID==VOLTAGE_ID)
+    //if(rxMsg.MsgID==VOLTAGE_ID)
     //{
-    //  for(int i = 0; i < rx_frame.FIR.B.DLC; i++)
+    //  for(int i = 0; i < rxMsg.FIR.B.DLC; i++)
     //  {
-    //    Serial.printf("0x%02X ", rx_frame.data.u8[i]);
+    //    Serial.printf("0x%02X ", rxMsg.data.u8[i]);
     //  }
     //}
   }  
@@ -677,9 +678,7 @@ void publishPacket()
   doc["current"] = volatile_packet.current; 
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
-  doc["fuel_level"] = volatile_packet.fuel;
-  //doc["timestamp"] = millis();
-  doc["fuel_level"] = volatile_packet.fuel;
+  //doc["fuel_level"] = volatile_packet.fuel;
   doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
