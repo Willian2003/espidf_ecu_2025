@@ -51,9 +51,9 @@ typedef struct
     /* DEBUG DATA */
     uint32_t timestamp;
 
-} packet_t;
+} mqtt_packet_t;
 
 // Packet constantly saved
-packet_t volatile_packet;
+mqtt_packet_t volatile_packet;
 
 #endif
