@@ -9,7 +9,6 @@
 /* User Libraries */
 #include "middle_defs.h"
 #include "hardware_defs.h"
-#include "saving.h"
 
 /* Credentials Variables */
 #define TIM     // Uncomment this line and comment the others if this is your chip
@@ -59,6 +58,11 @@ const long timeoutTime = 1000;
 const char *host = "esp32";                   // Here's your "host device name"
 const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
 const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
+
+// SD variables
+char file_name[20];
+File root;
+File dataFile;
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
