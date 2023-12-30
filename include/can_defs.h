@@ -25,6 +25,34 @@
 #define LAT_ID          0x600       // 8by
 #define LNG_ID          0x700       // 8by
 
+typedef struct
+{
+    int16_t acc_x;
+    int16_t acc_y;
+    int16_t acc_z;
+    int16_t dps_x;
+    int16_t dps_y;
+    int16_t dps_z;
+    
+} imu_t;
+    
+typedef struct
+{  
+    imu_t imu;
+    uint16_t rpm;
+    uint16_t speed;
+    uint8_t tempMOTOR;
+    uint8_t flags; // LOW_BATTERY | DANGER_CVT | DANGER_MOTOR | LOW_FUEL_LEVEL | MQTT_ON | SERVOR_ERROR | CHOKE | RUN -- LSB
+    uint16_t fuel;
+    uint8_t soc;
+    uint8_t tempCVT;
+    float voltage;
+    double latitude;
+    double longitude;
+    uint32_t timestamp;
+
+} packet_t;
+
 /* DEV DEFINITIONS */
 #include <ESP32CAN.h>
 #include <CAN_config.h>
