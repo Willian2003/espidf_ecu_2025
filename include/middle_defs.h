@@ -1,7 +1,12 @@
 #ifndef SOFTWARE_DEFINITIONS_H_
 #define SOFTWARE_DEFINITIONS_H_
 
-#include <Arduino.h>
+/*=========================*/
+    #include <Arduino.h>
+    #include "packets.h"
+    #include "can_defs.h"
+    #include "gprs_defs.h"
+/*=========================*/
 
 /* State Machines */
 typedef enum {IDLE_ST, SOT_ST, DEBUG_ST} state_t;
