@@ -20,6 +20,9 @@
         "array": "cpp",
         "string_view": "cpp",
         "initializer_list": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "cstring": "cpp",
+        "esp_intr.h": "c",
+        "esp_intr_alloc.h": "c"
     }
 }

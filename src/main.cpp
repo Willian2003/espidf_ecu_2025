@@ -4,23 +4,19 @@
 #include <SD.h>
 #include <CircularBuffer.h>
 /* Communication Libraries */
-#include <mcp2515_can.h>
-#include <WiFi.h>
-#include <ESPmDNS.h>
-#include <ArduinoJson.h>
-/* User Libraries */
 #include "can_defs.h"
+#include "gprs_defs.h"
+/* User Libraries */
 #include "middle_defs.h"
 #include "hardware_defs.h"
-#include "gprs_defs.h"
 #include "saving.h"
 
 /* Credentials Variables */
-//#define TIM     // Uncomment this line and comment the others if this is your chip
+#define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
-#define VIVO    // Uncomment this line and comment the others if this is your chip
+//#define VIVO    // Uncomment this line and comment the others if this is your chip
 
-// GPRS credentials
+/* GPRS credentials */
 #ifdef TIM
   const char apn[] = "timbrasil.br";    // Your APN
   const char gprsUser[] = "tim";        // User
@@ -36,6 +32,11 @@
   const char gprsUser[] = "vivo";        // User
   const char gprsPass[] = "vivo";        // Password
   const char simPIN[] = "8486";          // SIM cad PIN code, id any
+#else
+  const char apn[] = "timbrasil.br";    // Your APN
+  const char gprsUser[] = "tim";        // User
+  const char gprsPass[] = "tim";        // Password
+  const char simPIN[] = "1010";         // SIM card PIN code, if any
 #endif
 
 /* ESP Tools */
@@ -45,9 +46,6 @@ Ticker ticker1Hz;
 Ticker ticker40Hz;
 
 /* Debug Variables */
-float Debug_accx = 0.0;
-bool buffer_full = false;
-bool mounted = false; // SD mounted flag
 bool savingBlink = false;
 /* Global Variables */
 const char *server = "64.227.19.172";
@@ -56,7 +54,6 @@ char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 1000;
-boolean flagCANInit = false;
 
 // ESP hotspot definitions
 const char *host = "esp32";                   // Here's your "host device name"
@@ -65,7 +62,6 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
-int num_files = 0;
 bool mode = false;
 bool saveFlag = false;
 
@@ -73,21 +69,24 @@ bool saveFlag = false;
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
-void IRAM_ATTR can_ISR();
 void ticker1HzISR();
 void ticker40HzISR();
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
 void taskSetup(); 
-/* SD State Machine Global Functions */         
-void RingBuffer_state();
+/* SD State Machine Global Functions */
+  // CAN transmitter function         
+void RingBuffer_state(CAN_frame_t txMsg);    
+  // SD Functions
 void sdConfig();
 void sdSave();
-String packetToString();
+String packetToString(bool err = true);
 int countFiles(File dir);
-void canFilter();
+  // CAN receiver function
+void canFilter(CAN_frame_t rxMsg);   
 /* Connectivity State Machine Global Functions */
+  // GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
 void publishPacket();
@@ -98,36 +97,24 @@ void setup()
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   
   pinConfig(); // Hardware and Interrupt Config
-  
-  unsigned long tcanStart = 0, cantimeOut = 0;
-  tcanStart = millis();
-  cantimeOut = 1000; // (1 second)
-  // wait for the CAN shield to initialize
 
-  Serial.println("Connecting CAN...");
-  while((millis() - tcanStart) < cantimeOut) // wait timeout
-  { 
-    if(CAN.begin(CAN_1000KBPS, MCP_8MHz) == CAN_OK)
-    {
-      Serial.println("CAN init ok!!!");
-      flagCANInit = true; // Marks the flag that indicates correct CAN initialization
-      break; // get out of the loop
-    }
-    flagCANInit = false; // Mark the flag that indicates there was a problem initializing the CAN
-  }
+  /* CAN-BUS initialize */
+  CAN_cfg.speed = CAN_SPEED_1000KBPS;
+  CAN_cfg.tx_pin_id = CAN_TX_id;
+  CAN_cfg.rx_pin_id = CAN_RX_id;
+  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, 1024); // Create a queue for data receive
 
-  // if there was an error in the CAN it shows
-  if(!flagCANInit)
+  if(ESP32Can.CANInit()!=OK)
   {
-    Serial.println("CAN error!!!");
-    esp_restart();
+    Serial.println(F("CAN ERROR!!!"));
+    ESP.restart();
   }
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
 
-  ticker1Hz.attach(1, ticker1HzISR);
-  ticker40Hz.attach(1.0/40, ticker40HzISR);
+  ticker1Hz.attach(1.0, ticker1HzISR);
+  ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
 void loop() {/* Dont Write here */} 
@@ -136,9 +123,9 @@ void loop() {/* Dont Write here */}
 void pinConfig()
 {
   // Pins
-  pinMode(EMBEDDED_LED, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
-  pinMode(CAN_INTERRUPT, INPUT_PULLUP);
+  //pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   // pinMode(MODEM_RST, OUTPUT);
   // digitalWrite(MODEM_RST, HIGH);
   
@@ -167,7 +154,7 @@ void setupVolatilePacket()
   volatile_packet.latitude = -12.70814; 
   volatile_packet.longitude = -38.1732; 
   volatile_packet.timestamp = 0;
-  volatile_packet.SOT = 0;
+  volatile_packet.SOT = DISCONNECTED;
 }
 
 void taskSetup()
@@ -181,23 +168,35 @@ void taskSetup()
 /* SD State Machine */
 void SdStateMachine(void *pvParameters)
 {
+  /* Create a variable to send the message */
+  CAN_frame_t tx_frame; 
+
+  /* Determinate the CAN sender type and length */
+  tx_frame.FIR.B.FF = CAN_frame_std;
+  tx_frame.FIR.B.DLC = 8;
+
+  /* Create a variable to read the message */
+  CAN_frame_t rx_frame;
+
   while(1)
   {
-    RingBuffer_state(); 
+    RingBuffer_state(tx_frame); 
     if(saveFlag)
     {
       sdConfig();
       saveFlag = false;
     }
-    canFilter();
+    canFilter(rx_frame);
     vTaskDelay(1);
   }
 }
 
 /* SD State Machine Global Functions */
 // CAN transmitter function
-void RingBuffer_state()
+void RingBuffer_state(CAN_frame_t txMsg)
 {
+  static bool buffer_full = false;
+
   if(state_buffer.isFull())
   {
     buffer_full=true;
@@ -218,13 +217,15 @@ void RingBuffer_state()
     
     case SOT_ST:
       //Serial.println("sot");
-      byte sot[8];
-      sot[0] = volatile_packet.SOT; // 1 byte
+      txMsg.data.u8[0] = volatile_packet.SOT; // 1 byte
 
       /* Send State of Telemetry message */
-      if(CAN.sendMsgBuf(SOT_ID, false, 8, sot)==CAN_OK)
+      txMsg.MsgID = SOT_ID;
+
+      if(ESP32Can.CANWriteFrame(&txMsg)==OK)
       {
-        //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
+        CLEAR(txMsg.data.u8);
+        //Serial.println(volatile_packet.SOT);
       }
 
       break;
@@ -241,6 +242,8 @@ void RingBuffer_state()
 // SD Functions
 void sdConfig()
 {
+  static bool mounted = false; // SD mounted flag
+
   if (!mounted)
   {
     if(!SD.begin(SD_CS)) { return; } 
@@ -253,7 +256,7 @@ void sdConfig()
 
     if(dataFile)
     {
-      dataFile.println(packetToString());
+      dataFile.println(packetToString(mounted));
       dataFile.close();
     } else {
       digitalWrite(DEBUG_LED, HIGH);
@@ -267,7 +270,7 @@ void sdConfig()
 int countFiles(File dir)
 {
   int fileCountOnSD = 0; // for counting files
-  while(true)
+  for(;;)
   {
     File entry = dir.openNextFile();
     if (!entry)
@@ -299,10 +302,10 @@ void sdSave()
   }
 }
 
-String packetToString()
+String packetToString(bool err)
 {
   String dataString = "";
-    if(!mounted)
+    if(!err)
     {
       dataString += "ACCX";
       dataString += ",";
@@ -348,8 +351,7 @@ String packetToString()
     else
     {
       // imu
-      //dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
-      dataString += String(Debug_accx);
+      dataString += String((volatile_packet.imu_acc.acc_x*0.061)/1000);
       dataString += ",";
       dataString += String((volatile_packet.imu_acc.acc_y*0.061)/1000);
       dataString += ",";
@@ -395,88 +397,82 @@ String packetToString()
 }
 
 // CAN receiver function
-void canFilter()
+void canFilter(CAN_frame_t rxMsg)
 {
-  //mode = !mode;
-  //digitalWrite(EMBEDDED_LED, mode);
-  while(CAN.checkReceive() == CAN_MSGAVAIL)
+  while(xQueueReceive(CAN_cfg.rx_queue, &rxMsg, 3*portTICK_PERIOD_MS)==pdTRUE)
   {
-    //Serial.println("ok!");
-    mode = !mode;
-    digitalWrite(EMBEDDED_LED, mode);
+    mode = !mode; digitalWrite(EMBEDDED_LED, mode);
 
-    byte messageData[8];
-    uint32_t messageId;
-    unsigned char len = 0;
+    /* Read the ID message */
+    uint32_t messageId = rxMsg.MsgID;
 
-    // Reads message and ID
-    CAN.readMsgBuf(&len, messageData); 
-    messageId = CAN.getCanId();
+    /* Length of the message */
+    uint8_t len = 8;
 
-    /* Debug DATA */
+    /* Debug data */
     volatile_packet.timestamp = millis();
 
     /* Battery management DATA */
     if(messageId == VOLTAGE_ID)
     {
-      memcpy(&volatile_packet.volt, (float *)messageData, len); 
+      memcpy(&volatile_packet.volt, (float *)rxMsg.data.u8, len); 
       //Serial.printf("\r\nVoltage = %f\r\n", volatile_packet.volt);
     }
 
     if(messageId == SOC_ID)
     {
-      memcpy(&volatile_packet.SOC, (uint8_t *)messageData, len);
+      memcpy(&volatile_packet.SOC, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
     }
 
     if(messageId == CURRENT_ID)
     {
-      memcpy(&volatile_packet.current, (float *)messageData, len);
+      memcpy(&volatile_packet.current, (float *)rxMsg.data.u8, len);
       //Serial.printf("\r\nCurrent = %f\r\n", volatile_packet.current);
     }
 
     /* Rear DATA */
     if(messageId == CVT_ID) // Old BMU
-     {
-      memcpy(&volatile_packet.cvt, (uint8_t *)messageData, len);
+      {
+      memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
     if(messageId == FUEL_ID) // Old BMU
     {
-      memcpy(&volatile_packet.fuel, (uint16_t *)messageData, len);
+      memcpy(&volatile_packet.fuel, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
     }
 
     if(messageId == TEMPERATURE_ID)
     {
-      mempcpy(&volatile_packet.temperature, (uint8_t *)messageData, len);
+      mempcpy(&volatile_packet.temperature, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
     {
-      mempcpy(&volatile_packet.flags, (uint8_t *)messageData, len);
+      mempcpy(&volatile_packet.flags, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
     if(messageId == RPM_ID)
     {
-      mempcpy(&volatile_packet.rpm, (uint16_t *)messageData, len);
+      mempcpy(&volatile_packet.rpm, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
     if(messageId == SPEED_ID)
     {
-      mempcpy(&volatile_packet.speed, (uint16_t *)messageData, len);
+      mempcpy(&volatile_packet.speed, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     }  
 
     if(messageId == IMU_ACC_ID)
     {
-      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)messageData, len);
-      Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
+      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg.data.u8, len);
+      //Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
       //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
       //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
       //Serial.printf("\r\nAccz = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
@@ -484,7 +480,7 @@ void canFilter()
 
     if(messageId == IMU_DPS_ID)
     {
-      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)messageData, len);
+      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
       //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
       //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
@@ -492,7 +488,7 @@ void canFilter()
 
     if(messageId == ANGLE_ID)
     {
-      memcpy(&volatile_packet.Angle, (Angle_t *)messageData, len);
+      memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nAngle Roll = %d\r\n", volatile_packet.Angle.Roll);
       //Serial.printf("\r\nAngle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
     }
@@ -500,22 +496,34 @@ void canFilter()
     /* GPS/TELEMETRY DATA */
     if(messageId == LAT_ID)
     {
-      memcpy(&volatile_packet.latitude, (double *)messageData, len);
+      memcpy(&volatile_packet.latitude, (double *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.latitude);
     }
 
     if(messageId == LNG_ID)
     {
-      memcpy(&volatile_packet.longitude, (double *)messageData, len);
+      memcpy(&volatile_packet.longitude, (double *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.longitude);
     }
 
     if(messageId == SOT_ID)
     {
-      memcpy(&volatile_packet.SOT, (uint8_t *)messageData, len);
+      memcpy(&volatile_packet.SOT, (uint8_t *)rxMsg.data.u8, len);
       //Serial.println(volatile_packet.SOT);
     }
-  }
+
+    //int t2 = micros();
+    //Serial.printf("Recieve by CAN: id 0x%08X\t", rxMsg.MsgID);
+
+    /* Print for debug */
+    //if(rxMsg.MsgID==VOLTAGE_ID)
+    //{
+    //  for(int i = 0; i < rxMsg.FIR.B.DLC; i++)
+    //  {
+    //    Serial.printf("0x%02X ", rxMsg.data.u8[i]);
+    //  }
+    //}
+  }  
 }
 
 /* Connectivity State Machine */
@@ -588,23 +596,11 @@ void ConnStateMachine(void *pvParameters)
   {
     if(!mqttClient.connected())
     {
-      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+      volatile_packet.SOT = DISCONNECTED; // disable online flag 
       gsmReconnect();
     }
 
     publishPacket();
-
-    /*for (unsigned long start = millis(); millis() - start < timeoutTime;)
-    {
-      while (neogps.available())
-      {
-        if (gps.encode(neogps.read()))
-        {
-          volatile_packet.latitude = gps.location.lat();
-          volatile_packet.longitude = gps.location.lng();
-        }
-      }
-    }*/
 
     mqttClient.loop();
     vTaskDelay(1);
@@ -612,7 +608,7 @@ void ConnStateMachine(void *pvParameters)
 }
 
 /* Connectivity State Machine Global Functions */
-// GPRS Functions 
+// GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
@@ -646,33 +642,32 @@ void gsmReconnect()
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
-      volatile_packet.SOT |= 0x01; // enable online flag (00000001)
+      volatile_packet.SOT |= CONNECTED; // enable online flag 
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
-      digitalWrite(LED_BUILTIN, HIGH);
+      //digitalWrite(LED_BUILTIN, HIGH);
     } else {
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
-      volatile_packet.SOT &= ~(0x01); // disable online flag (00000000)
+      volatile_packet.SOT &= ~(CONNECTED); // disable online flag 
       delay(2000); 
     }
   }
 }
 
-void publishPacket()
+void publishPacket()  
 {
   StaticJsonDocument<300> doc;
 
-  //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
-  doc["accx"] = Debug_accx;
+  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
   doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
   doc["dpsx"] = volatile_packet.imu_dps.dps_x;
   doc["dpsy"] = volatile_packet.imu_dps.dps_y;
   doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  //doc["roll"] = volatile_packet.Angle.Roll;
-  //doc["pitch"] = volatile_packet.Angle.Pitch;
+  doc["roll"] = volatile_packet.Angle.Roll;
+  doc["pitch"] = volatile_packet.Angle.Pitch;
   doc["rpm"] = volatile_packet.rpm;
   doc["speed"] = volatile_packet.speed;
   doc["motor"] = volatile_packet.temperature;
@@ -683,10 +678,8 @@ void publishPacket()
   doc["current"] = volatile_packet.current; 
   doc["latitude"] = volatile_packet.latitude;
   doc["longitude"] = volatile_packet.longitude;
-  doc["fuel_level"] = volatile_packet.fuel;
-  //doc["timestamp"] = millis();
   //doc["fuel_level"] = volatile_packet.fuel;
-  //doc["timestamp"] = volatile_packet.timestamp;
+  doc["timestamp"] = volatile_packet.timestamp;
 
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
@@ -694,12 +687,6 @@ void publishPacket()
 }
 
 /* Interrupts routine */
-void IRAM_ATTR can_ISR()
-{
-  detachInterrupt(digitalPinToInterrupt(CAN_INTERRUPT));
-  l_state = CAN_STATE;
-}
-
 void ticker1HzISR()
 {
   state_buffer.push(SOT_ST);

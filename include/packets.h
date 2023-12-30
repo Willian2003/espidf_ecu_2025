@@ -2,6 +2,9 @@
 #define PACKETS_H_
 
 #include <stdio.h>
+#include <string.h>
+
+#define CLEAR(x) memset(&x, 0x00, 8)
 
 typedef struct
 {
@@ -41,7 +44,7 @@ typedef struct
     Angle_t Angle;
     uint16_t speed;
     /* FLAGS */
-    uint8_t SOT;   // NC | NC | NC | DEVAGAR | PISAR | COMB_STOP | BOX_MSG | ON=1/OF=0
+    uint8_t SOT;   // Connected or not *(0 or 1)
     /* GPS DATAS */
     double latitude;
     double longitude;
