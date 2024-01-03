@@ -10,6 +10,17 @@
 #include "middle_defs.h"
 #include "hardware_defs.h"
 
+#define MB1 // Uncomment a line if it is your car choice
+//#define MB2 // Uncomment a line if it is your car choice
+
+#ifdef MB1
+  #define CAR_ID MB1_ID
+#endif
+
+#ifdef MB2
+  #define CAR_ID MB2_ID
+#endif
+
 /* Credentials Variables */
 #define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
@@ -350,6 +361,8 @@ String packetToString(bool err)
       dataString += "LONGITUDE";
       dataString += ",";
       dataString += "TIMESTAMP";
+      dataString += ",";
+      dataString += "ID=" + String(CAR_ID);
     }
     
     else
