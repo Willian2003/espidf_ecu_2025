@@ -463,26 +463,26 @@ void canFilter(CAN_frame_t rxMsg)
 
     if(messageId == TEMPERATURE_ID)
     {
-      mempcpy(&volatile_packet.temperature, (uint8_t *)rxMsg.data.u8, len);
+      memcpy(&volatile_packet.temperature, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
     } 
 
     if(messageId == FLAGS_ID)
     {
-      mempcpy(&volatile_packet.flags, (uint8_t *)rxMsg.data.u8, len);
+      memcpy(&volatile_packet.flags, (uint8_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
     }
 
     if(messageId == RPM_ID)
     {
-      mempcpy(&volatile_packet.rpm, (uint16_t *)rxMsg.data.u8, len);
+      memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
     }
     
     /* Front DATA */
     if(messageId == SPEED_ID)
     {
-      mempcpy(&volatile_packet.speed, (uint16_t *)rxMsg.data.u8, len);
+      memcpy(&volatile_packet.speed, (uint16_t *)rxMsg.data.u8, len);
       //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
     }  
 
@@ -675,7 +675,7 @@ void gsmReconnect()
 
 void publishPacket()  
 {
-  StaticJsonDocument<300> doc;
+  StaticJsonDocument<310> doc;
 
   doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
@@ -697,6 +697,8 @@ void publishPacket()
   doc["longitude"] = volatile_packet.longitude;
   //doc["fuel_level"] = volatile_packet.fuel;
   doc["timestamp"] = volatile_packet.timestamp;
+
+  //Serial.printf("Json Size = %d\r\n", doc.size());
 
   memset(msg, 0, sizeof(msg));
   serializeJson(doc, msg);
