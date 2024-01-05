@@ -117,7 +117,7 @@ void setup()
   CAN_cfg.speed = CAN_SPEED_1000KBPS;
   CAN_cfg.tx_pin_id = CAN_TX_id;
   CAN_cfg.rx_pin_id = CAN_RX_id;
-  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, 1024); // Create a queue for data receive
+  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
 
   if(ESP32Can.CANInit()!=OK)
   {
@@ -259,7 +259,7 @@ void sdConfig()
 {
   static bool mounted = false; // SD mounted flag
 
-  if (!mounted)
+  if(!mounted)
   {
     if(!SD.begin(SD_CS)) { return; } 
 

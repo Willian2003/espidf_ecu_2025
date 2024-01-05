@@ -54,15 +54,17 @@ typedef struct
 } packet_t;
 
 /* DEV DEFINITIONS */
-#include <ESP32CAN.h>
-#include <CAN_config.h>
-#include "hardware_defs.h"
+/*==============================*/
+    #include <ESP32CAN.h>
+    #include <CAN_config.h>
+    #include "hardware_defs.h"
+/*==============================*/
 
 #define OK    0
 #define FAIL -1
 
 CAN_device_t CAN_cfg;             // CAN Config
-unsigned long previousMillis = 0; // will store last time a CAN Message was send
+unsigned long previousMillis = 0; // Will store last time a CAN Message was send
 const int rx_queue_size = 4096;   // Receive Queue size
 
 #endif
