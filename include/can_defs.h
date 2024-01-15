@@ -61,7 +61,7 @@ typedef struct
 /*==============================*/
 
 #define OK    0
-#define FAIL -1
+#define FAIL  -1
 
 CAN_device_t CAN_cfg;             // CAN Config
 unsigned long previousMillis = 0; // Will store last time a CAN Message was send

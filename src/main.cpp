@@ -114,7 +114,7 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS initialize */
-  CAN_cfg.speed = CAN_SPEED_1000KBPS;
+  CAN_cfg.speed     = CAN_SPEED_1000KBPS;
   CAN_cfg.tx_pin_id = CAN_TX_id;
   CAN_cfg.rx_pin_id = CAN_RX_id;
   CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
@@ -155,21 +155,21 @@ void setupVolatilePacket()
   volatile_packet.imu_dps.dps_x = 0;
   volatile_packet.imu_dps.dps_y = 0;
   volatile_packet.imu_dps.dps_z = 0;
-  volatile_packet.Angle.Roll = 0;
-  volatile_packet.Angle.Pitch = 0;
-  volatile_packet.rpm = 0;
-  volatile_packet.speed = 0;
-  volatile_packet.temperature = 0;
-  volatile_packet.flags = 0;
-  volatile_packet.SOC = 0;
-  volatile_packet.cvt = 0;
-  volatile_packet.fuel = 0;
-  volatile_packet.volt = 0;
-  volatile_packet.current = 0;
-  volatile_packet.latitude = -12.70814; 
-  volatile_packet.longitude = -38.1732; 
-  volatile_packet.timestamp = 0;
-  volatile_packet.SOT = DISCONNECTED;
+  volatile_packet.Angle.Roll    = 0;
+  volatile_packet.Angle.Pitch   = 0;
+  volatile_packet.rpm           = 0;
+  volatile_packet.speed         = 0;
+  volatile_packet.temperature   = 0;
+  volatile_packet.flags         = 0;
+  volatile_packet.SOC           = 0;
+  volatile_packet.cvt           = 0;
+  volatile_packet.fuel          = 0;
+  volatile_packet.volt          = 0;
+  volatile_packet.current       = 0;
+  volatile_packet.latitude      = -12.70814; 
+  volatile_packet.longitude     = -38.1732; 
+  volatile_packet.timestamp     = 0;
+  volatile_packet.SOT           = DISCONNECTED;
 }
 
 void taskSetup()
