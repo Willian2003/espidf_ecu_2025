@@ -447,7 +447,7 @@ void canFilter(CAN_frame_t rxMsg)
 
     /* Rear DATA */
     if(messageId == CVT_ID) // Old BMU
-      {
+    {
       memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg.data.u8, sizeof(uint8_t));
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
