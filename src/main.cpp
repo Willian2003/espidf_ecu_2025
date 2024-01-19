@@ -348,8 +348,8 @@ String packetToString(bool err)
       dataString += ",";
       dataString += "TEMP_CVT";
       dataString += ",";
-      dataString += "FUEL_LEVEL";
-      dataString += ",";
+      //dataString += "FUEL_LEVEL";
+      //dataString += ",";
       dataString += "VOLT";
       dataString += ",";
       dataString += "CURRENT";
@@ -395,8 +395,8 @@ String packetToString(bool err)
       dataString += ",";
       dataString += String(volatile_packet.cvt);
       dataString += ",";
-      dataString += String(volatile_packet.fuel);
-      dataString += ",";
+      //dataString += String(volatile_packet.fuel);
+      //dataString += ",";
       dataString += String(volatile_packet.volt);
       dataString += ",";
       dataString += String(volatile_packet.current);
@@ -452,11 +452,11 @@ void canFilter(CAN_frame_t rxMsg)
       //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
     }
 
-    if(messageId == FUEL_ID) // Old BMU
-    {
-      memcpy(&volatile_packet.fuel, (uint16_t *)rxMsg.data.u8, sizeof(uint16_t));
-      //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
-    }
+    //if(messageId == FUEL_ID) // Old BMU
+    //{
+    //  memcpy(&volatile_packet.fuel, (uint16_t *)rxMsg.data.u8, sizeof(uint16_t));
+    //  //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
+    //}
 
     if(messageId == TEMPERATURE_ID)
     {
