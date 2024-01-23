@@ -119,7 +119,7 @@ void setup()
   CAN_cfg.rx_pin_id = CAN_RX_id;
   CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
 
-  if(ESP32Can.CANInit()!=OK)
+  if(ESP32Can.CANInit()!=CAN_OK)
   {
     Serial.println(F("CAN ERROR!!!"));
     ESP.restart();
@@ -237,7 +237,7 @@ void RingBuffer_state(CAN_frame_t txMsg)
       /* Send State of Telemetry message */
       txMsg.MsgID = SOT_ID;
 
-      if(ESP32Can.CANWriteFrame(&txMsg)==OK)
+      if(ESP32Can.CANWriteFrame(&txMsg)==CAN_OK)
       {
         CLEAR(txMsg.data.u8);
         //Serial.println(volatile_packet.SOT);

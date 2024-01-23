@@ -60,8 +60,7 @@ typedef struct
     #include "hardware_defs.h"
 /*==============================*/
 
-#define OK    0
-#define FAIL  -1
+typedef enum {CAN_OK= 0, CAN_FAIL= -1} CAN_status_t;
 
 CAN_device_t CAN_cfg;             // CAN Config
 unsigned long previousMillis = 0; // Will store last time a CAN Message was send
