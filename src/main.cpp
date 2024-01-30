@@ -52,7 +52,7 @@
 /* ESP Tools */
 CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
 state_t current_state = IDLE_ST;
-Ticker ticker1Hz; 
+Ticker timeoutSOT; 
 Ticker ticker40Hz;
 
 /* Debug Variables */
@@ -84,7 +84,7 @@ bool saveFlag = false;
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
-void ticker1HzISR();
+void debouceHandlerSOT();
 void ticker40HzISR();
 /* Setup Descriptions */
 void pinConfig();    
@@ -128,7 +128,7 @@ void setup()
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
 
-  ticker1Hz.attach(1.0, ticker1HzISR);
+  //ticker1Hz.attach(1.0, ticker1HzISR);
   ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
@@ -196,11 +196,13 @@ void SdStateMachine(void *pvParameters)
   while(1)
   {
     RingBuffer_state(tx_frame); 
+
     if(saveFlag)
     {
       sdConfig();
       saveFlag = false;
     }
+    
     canFilter(rx_frame);
     vTaskDelay(1);
   }
@@ -605,6 +607,7 @@ void ConnStateMachine(void *pvParameters)
     if(!mqttClient.connected())
     {
       volatile_packet.SOT = DISCONNECTED; // disable online flag 
+      timeoutSOT.once(0.01, debouceHandlerSOT);
       gsmReconnect();
     }
 
@@ -651,6 +654,7 @@ void gsmReconnect()
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
       volatile_packet.SOT |= CONNECTED; // enable online flag 
+      timeoutSOT.once(0.01, debouceHandlerSOT);
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -659,6 +663,7 @@ void gsmReconnect()
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
       volatile_packet.SOT &= ~(CONNECTED); // disable online flag 
+      timeoutSOT.once(0.01, debouceHandlerSOT);
       delay(2000); 
     }
   }
@@ -697,7 +702,7 @@ void publishPacket()
 }
 
 /* Interrupts routine */
-void ticker1HzISR()
+void debouceHandlerSOT()
 {
   state_buffer.push(SOT_ST);
   //state_buffer.push(DEBUG_ST);
