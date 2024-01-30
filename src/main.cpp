@@ -193,6 +193,9 @@ void SdStateMachine(void *pvParameters)
   /* Create a variable to read the message */
   CAN_frame_t rx_frame;
 
+  /* Send the first message for CAN/PANEL conection */
+  state_buffer.push(SOT_ST);
+
   while(1)
   {
     RingBuffer_state(tx_frame); 
