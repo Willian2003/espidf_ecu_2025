@@ -23,6 +23,8 @@
         "utility": "cpp",
         "cstring": "cpp",
         "esp_intr.h": "c",
-        "esp_intr_alloc.h": "c"
+        "esp_intr_alloc.h": "c",
+        "hardware.h": "c",
+        "gprs.h": "c"
     }
 }
