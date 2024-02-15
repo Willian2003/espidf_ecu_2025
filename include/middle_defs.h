@@ -1,17 +1,17 @@
-#ifndef SOFTWARE_DEFINITIONS_H_
-#define SOFTWARE_DEFINITIONS_H_
+#ifndef SOFTWARE_DEFINITIONS_H
+#define SOFTWARE_DEFINITIONS_H
 
-/*=========================*/
-    #include <Arduino.h>
-    #include "packets.h"
-    #include "can_defs.h"
-    #include "gprs_defs.h"
-/*=========================*/
+#include <Arduino.h>
+#include "packets.h"
+#include "can_defs.h"
+#include "gprs_defs.h"
 
 /* State Machines */
-typedef enum {IDLE_ST, SOT_ST, DEBUG_ST} state_t;
-
-typedef enum{CONNECTED=0X01, DISCONNECTED=0X00} connectivity_states;
+typedef enum {
+    CONNECTED       = 0X01, 
+    DISCONNECTED    = 0X00, 
+    ERROR_CONECTION = 0x04
+} connectivity_states;
 
 unsigned long timer;
 

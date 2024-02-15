@@ -1,9 +1,7 @@
-#ifndef HARDWARE_DEFS_H_
-#define HARDWARE_DEFS_H_
+#ifndef HARDWARE_DEFS_H
+#define HARDWARE_DEFS_H
 
-/*==============================*/
-    #include "driver/gpio.h"
-/*==============================*/
+#include "driver/gpio.h"
 
 /* pinout definitions */
 // LEDS

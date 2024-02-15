@@ -1,10 +1,8 @@
-#ifndef PACKETS_H_
-#define PACKETS_H_
+#ifndef PACKETS_H
+#define PACKETS_H
 
 #include <stdio.h>
 #include <string.h>
-
-#define CLEAR(x) memset(&x, 0x00, 8)
 
 #define MB1_ID  11
 #define MB2_ID  22
@@ -31,24 +29,21 @@ typedef struct
 
 typedef struct
 {
-    /* BMU DATAS */
+    /* REAR DATAS */
     float volt;
     uint8_t SOC;
     uint8_t cvt;
-    uint16_t fuel;
+    //uint16_t fuel;
     float current;
-    /* REAR DATAS */
     uint8_t temperature;
+    uint16_t speed;
+    /* FRONT DATAS */
+    imu_acc_t imu_acc;
+    imu_dps_t imu_dps;
+    Angle_t Angle;
     uint16_t rpm;
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
-    /* FRONT DATAS */
-    imu_dps_t imu_dps;
-    imu_acc_t imu_acc;
-    Angle_t Angle;
-    uint16_t speed;
-    /* FLAGS */
-    uint8_t SOT;   // Connected or not *(0 or 1)
-    /* GPS DATAS */
+    /* MPU DATAS */
     double latitude;
     double longitude;
     /* DEBUG DATA */
