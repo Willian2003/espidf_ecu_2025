@@ -2,7 +2,7 @@
 /* ESP Tools Libraries */
 #include <Ticker.h>
 #include <SD.h>
-#include <CircularBuffer.h>
+#include "esp32_can.h"
 /* Communication Libraries */
 #include "can_defs.h"
 #include "gprs_defs.h"
@@ -50,20 +50,21 @@
 #endif
 
 /* ESP Tools */
-CircularBuffer<state_t, BUFFER_SIZE/2> state_buffer;
-state_t current_state = IDLE_ST;
+CAN_FRAME txMsg;
 Ticker timeoutSOT; 
 Ticker ticker40Hz;
 
 /* Debug Variables */
 bool savingBlink = false;
+bool mounted = false;
 /* Global Variables */
+uint8_t SOT = DISCONNECTED;
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
-const long timeoutTime = 1000;
+const long timeoutTime = 3000;
 
 // ESP hotspot definitions
 const char *host = "esp32";                   // Here's your "host device name"
@@ -72,8 +73,7 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // SD variables
 char file_name[20];
-File root;
-File dataFile;
+File root, dataFile;
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -84,6 +84,7 @@ bool saveFlag = false;
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
+void canISR(CAN_FRAME *rxMsg);
 void debouceHandlerSOT();
 void ticker40HzISR();
 /* Setup Descriptions */
@@ -91,17 +92,11 @@ void pinConfig();
 void setupVolatilePacket();
 void taskSetup(); 
 /* SD State Machine Global Functions */
-  // CAN transmitter function         
-void RingBuffer_state(CAN_frame_t txMsg);    
-  // SD Functions
-void sdConfig();
-void sdSave();
-String packetToString(bool err = true);
+bool sdConfig();
 int countFiles(File dir);
-  // CAN receiver function
-void canFilter(CAN_frame_t rxMsg);   
+String packetToString(bool err);
+void sdSave(bool set); 
 /* Connectivity State Machine Global Functions */
-  // GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
 void publishPacket();
@@ -114,21 +109,17 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS initialize */
-  CAN_cfg.speed     = CAN_SPEED_1000KBPS;
-  CAN_cfg.tx_pin_id = CAN_TX_id;
-  CAN_cfg.rx_pin_id = CAN_RX_id;
-  CAN_cfg.rx_queue  = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t)); // Create a queue for data receive
-
-  if(ESP32Can.CANInit()!=CAN_OK)
-  {
-    Serial.println(F("CAN ERROR!!!"));
-    ESP.restart();
-  }
+  CAN.setCANPins((gpio_num_t)CAN_RX_id, (gpio_num_t)CAN_TX_id);
+  CAN.begin(CAN_BPS_1000K);
+  CAN.watchFor();
+  CAN.setCallback(0, canISR);
+  txMsg.length = 8;
+  txMsg.extended = 0; txMsg.rtr = 0;
+  txMsg.id = SOT_ID; 
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
 
-  //ticker1Hz.attach(1.0, ticker1HzISR);
   ticker40Hz.attach(0.025, ticker40HzISR);
 }
 
@@ -163,13 +154,12 @@ void setupVolatilePacket()
   volatile_packet.flags         = 0;
   volatile_packet.SOC           = 0;
   volatile_packet.cvt           = 0;
-  volatile_packet.fuel          = 0;
+  //volatile_packet.fuel          = 0;
   volatile_packet.volt          = 0;
   volatile_packet.current       = 0;
   volatile_packet.latitude      = -12.70814; 
   volatile_packet.longitude     = -38.1732; 
   volatile_packet.timestamp     = 0;
-  volatile_packet.SOT           = DISCONNECTED;
 }
 
 void taskSetup()
@@ -183,108 +173,42 @@ void taskSetup()
 /* SD State Machine */
 void SdStateMachine(void *pvParameters)
 {
-  /* Create a variable to send the message */
-  CAN_frame_t tx_frame; 
+  do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
 
-  /* Determinate the CAN sender type and length */
-  tx_frame.FIR.B.FF = CAN_frame_std;
-  tx_frame.FIR.B.DLC = 8;
+  if(!mounted) 
+  { 
+    Serial.println("SD mounted error!!"); 
+    return; 
+  }
 
-  /* Create a variable to read the message */
-  CAN_frame_t rx_frame;
+  sdSave(true);
 
-  /* Send the first message for CAN/PANEL conection */
-  state_buffer.push(SOT_ST);
+  /* For synchronization between ECU and panel */
+  timeoutSOT.once(0.1, debouceHandlerSOT);
 
   while(1)
   {
-    RingBuffer_state(tx_frame); 
-
     if(saveFlag)
     {
-      sdConfig();
+      sdSave(false);
       saveFlag = false;
     }
-    
-    canFilter(rx_frame);
+
     vTaskDelay(1);
   }
 }
 
 /* SD State Machine Global Functions */
-// CAN transmitter function
-void RingBuffer_state(CAN_frame_t txMsg)
+bool sdConfig()
 {
-  static bool buffer_full = false;
+  if(!SD.begin(SD_CS)) return false;
 
-  if(state_buffer.isFull())
-  {
-    buffer_full=true;
-    current_state = state_buffer.pop();
-  } else {
-    buffer_full=false;
-    if(!state_buffer.isEmpty())
-      current_state = state_buffer.pop();
-    else
-      current_state = IDLE_ST;
-  }
+  root = SD.open("/");
+  int num_files = countFiles(root);
+  sprintf(file_name, "/%s%d.csv", "data", num_files+1);
+  mounted = true;
 
-  switch(current_state)
-  {
-    case IDLE_ST:
-      //Serial.println("i");
-      break;
-    
-    case SOT_ST:
-      //Serial.println("sot");
-      txMsg.data.u8[0] = volatile_packet.SOT; // 1 byte
-
-      /* Send State of Telemetry message */
-      txMsg.MsgID = SOT_ID;
-
-      if(ESP32Can.CANWriteFrame(&txMsg)==CAN_OK)
-      {
-        CLEAR(txMsg.data.u8);
-        //Serial.println(volatile_packet.SOT);
-      }
-
-      break;
-
-    case DEBUG_ST:
-      //Serial.println("d");
-      //Serial.printf("\r\nSOT = %d\r\n", volatile_packet.SOT);
-      //Serial.printf("\r\nLatitude = %lf\r\n", volatile_packet.latitude);
-      //Serial.printf("\r\nLongitude = %lf\r\n", volatile_packet.longitude);
-      break;
-  }
-}
-
-// SD Functions
-void sdConfig()
-{
-  static bool mounted = false; // SD mounted flag
-
-  if(!mounted)
-  {
-    if(!SD.begin(SD_CS)) { return; } 
-
-    root = SD.open("/");
-    int num_files = countFiles(root);
-    sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
-
-    dataFile = SD.open(file_name, FILE_APPEND);
-
-    if(dataFile)
-    {
-      dataFile.println(packetToString(mounted));
-      dataFile.close();
-    } else {
-      digitalWrite(DEBUG_LED, HIGH);
-      Serial.println(F("FAIL TO OPEN THE FILE"));
-    }
-    mounted = true;
-  }
-  sdSave();
+  return true;
 }
 
 int countFiles(File dir)
@@ -306,13 +230,13 @@ int countFiles(File dir)
   return fileCountOnSD - 1;
 }
 
-void sdSave()
+void sdSave(bool set)
 {
   dataFile = SD.open(file_name, FILE_APPEND);
 
   if(dataFile)
   {
-    dataFile.println(packetToString());
+    dataFile.println(packetToString(set));
     dataFile.close();
     savingBlink = !savingBlink;
     digitalWrite(DEBUG_LED, savingBlink);
@@ -325,7 +249,7 @@ void sdSave()
 String packetToString(bool err)
 {
   String dataString = "";
-    if(!err)
+    if(err)
     {
       dataString += "ACCX";
       dataString += ",";
@@ -343,6 +267,7 @@ String packetToString(bool err)
       dataString += ",";
       dataString += "PITCH";
       dataString += ",";
+
       dataString += "RPM";
       dataString += ",";
       dataString += "VEL";
@@ -418,127 +343,6 @@ String packetToString(bool err)
   return dataString;
 }
 
-// CAN receiver function
-void canFilter(CAN_frame_t rxMsg)
-{
-  while(xQueueReceive(CAN_cfg.rx_queue, &rxMsg, 4*portTICK_PERIOD_MS)==pdTRUE)
-  {
-    mode = !mode; digitalWrite(EMBEDDED_LED, mode);
-
-    /* Read the ID message */
-    uint32_t messageId = rxMsg.MsgID;
-
-    /* Debug data */
-    volatile_packet.timestamp = millis();
-
-    /* Battery management DATA */
-    if(messageId == VOLTAGE_ID)
-    {
-      memcpy(&volatile_packet.volt, (float *)rxMsg.data.u8, sizeof(float)); 
-      //Serial.printf("\r\nVoltage = %f\r\n", volatile_packet.volt);
-    }
-
-    if(messageId == SOC_ID)
-    {
-      memcpy(&volatile_packet.SOC, (uint8_t *)rxMsg.data.u8, sizeof(uint8_t));
-      //Serial.printf("\r\nState Of Charge = %d\r\n", volatile_packet.SOC);
-    }
-
-    if(messageId == CURRENT_ID)
-    {
-      memcpy(&volatile_packet.current, (float *)rxMsg.data.u8, sizeof(float));
-      //Serial.printf("\r\nCurrent = %f\r\n", volatile_packet.current);
-    }
-
-    /* Rear DATA */
-    if(messageId == CVT_ID) // Old BMU
-    {
-      memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg.data.u8, sizeof(uint8_t));
-      //Serial.printf("\r\nCVT temperature = %d\r\n", volatile_packet.cvt);
-    }
-
-    //if(messageId == FUEL_ID) // Old BMU
-    //{
-    //  memcpy(&volatile_packet.fuel, (uint16_t *)rxMsg.data.u8, sizeof(uint16_t));
-    //  //Serial.printf("\r\nFuel Level = %d\r\n", volatile_packet.fuel);
-    //}
-
-    if(messageId == TEMPERATURE_ID)
-    {
-      memcpy(&volatile_packet.temperature, (uint8_t *)rxMsg.data.u8, sizeof(uint8_t));
-      //Serial.printf("\r\nMotor temperature = %d\r\n", volatile_packet.temperature);
-    } 
-
-    if(messageId == FLAGS_ID)
-    {
-      memcpy(&volatile_packet.flags, (uint8_t *)rxMsg.data.u8, sizeof(uint8_t));
-      //Serial.printf("\r\nflags = %d\r\n", volatile_packet.flags);
-    }
-
-    if(messageId == RPM_ID)
-    {
-      memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg.data.u8, sizeof(uint16_t));
-      //Serial.printf("\r\nRPM = %d\r\n", volatile_packet.rpm);
-    }
-    
-    /* Front DATA */
-    if(messageId == SPEED_ID)
-    {
-      memcpy(&volatile_packet.speed, (uint16_t *)rxMsg.data.u8, sizeof(uint16_t));
-      //Serial.printf("\r\nSpeed = %d\r\n", volatile_packet.speed);
-    }  
-
-    if(messageId == IMU_ACC_ID)
-    {
-      memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg.data.u8, sizeof(imu_acc_t));
-      //Debug_accx = ((float)volatile_packet.imu_acc.acc_x*0.061)/1000.00;
-      //Serial.printf("\r\nAccx = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
-      //Serial.printf("\r\nAccy = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
-      //Serial.printf("\r\nAccz = %.1f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
-    }
-
-    if(messageId == IMU_DPS_ID)
-    {
-      memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg.data.u8, sizeof(imu_dps_t));
-      //Serial.printf("\r\nDPSx = %d\r\n", volatile_packet.imu_dps.dps_x);
-      //Serial.printf("\r\nDPSy = %d\r\n", volatile_packet.imu_dps.dps_y);
-      //Serial.printf("\r\nDPS  = %d\r\n", volatile_packet.imu_dps.dps_z);
-    }
-
-    if(messageId == ANGLE_ID)
-    {
-      memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg.data.u8, sizeof(Angle_t));
-      //Serial.printf("\r\nAngle Roll = %d\r\n", volatile_packet.Angle.Roll);
-      //Serial.printf("\r\nAngle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
-    }
-
-    /* GPS/TELEMETRY DATA */
-    if(messageId == LAT_ID)
-    {
-      memcpy(&volatile_packet.latitude, (double *)rxMsg.data.u8, sizeof(double));
-      //Serial.println(volatile_packet.latitude);
-    }
-
-    if(messageId == LNG_ID)
-    {
-      memcpy(&volatile_packet.longitude, (double *)rxMsg.data.u8, sizeof(double));
-      //Serial.println(volatile_packet.longitude);
-    }
-
-    //int t2 = micros();
-
-    /* Print for debug */
-    //if(rxMsg.MsgID==xx_ID)
-    //{
-    //  Serial.printf("Recieve by CAN: id 0x%08X\t", rxMsg.MsgID);
-    //  for(int i = 0; i < rxMsg.FIR.B.DLC; i++)
-    //  {
-    //    Serial.printf("0x%02X ", rxMsg.data.u8[i]);
-    //  }
-    //}
-  }  
-}
-
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
@@ -547,13 +351,9 @@ void ConnStateMachine(void *pvParameters)
   modem.restart();
   // Or, use modem.init() if you don't need the complete restart
 
-  String modemInfo = modem.getModemInfo();
-  Serial.print("Modem: ");
-  Serial.println(modemInfo);
+  Serial.print("Modem: "); Serial.println(modem.getModemInfo());
 
-  int modemstatus = modem.getSimStatus();
-  Serial.print("Status: ");
-  Serial.println(modemstatus);
+  Serial.print("Status: "); Serial.println(modem.getSimStatus());
 
   // Unlock your SIM card with a PIN if needed
   if(strlen(simPIN) && modem.getSimStatus() != 3)
@@ -565,6 +365,8 @@ void ConnStateMachine(void *pvParameters)
   if(!modem.waitForNetwork(240000L))
   {
     Serial.println("fail");
+    SOT |= ERROR_CONECTION;
+    timeoutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -580,6 +382,8 @@ void ConnStateMachine(void *pvParameters)
   if(!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
     Serial.println(" fail");
+    SOT |= ERROR_CONECTION;
+    timeoutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -593,6 +397,8 @@ void ConnStateMachine(void *pvParameters)
   {
     // http://esp32.local
     Serial.println("Error configuring mDNS. Rebooting in 1s...");
+    SOT |= ERROR_CONECTION;
+    timeoutSOT.once(0.1, debouceHandlerSOT);
     delay(1000);
     ESP.restart();
   }
@@ -602,15 +408,14 @@ void ConnStateMachine(void *pvParameters)
   mqttClient.setCallback(gsmCallback);
 
   Serial.println("Ready");
-  Serial.print("SoftAP IP address: ");
-  Serial.println(WiFi.softAPIP());
+  Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
   while(1)
   {
     if(!mqttClient.connected())
     {
-      volatile_packet.SOT = DISCONNECTED; // disable online flag 
-      timeoutSOT.once(0.01, debouceHandlerSOT);
+      SOT = DISCONNECTED; // disable online flag 
+      timeoutSOT.once(0.1, debouceHandlerSOT);
       gsmReconnect();
     }
 
@@ -656,8 +461,8 @@ void gsmReconnect()
       mqttClient.publish("/esp-connected", msg);
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
-      volatile_packet.SOT |= CONNECTED; // enable online flag 
-      timeoutSOT.once(0.01, debouceHandlerSOT);
+      SOT |= CONNECTED; // enable online flag 
+      timeoutSOT.once(0.1, debouceHandlerSOT);
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -665,8 +470,8 @@ void gsmReconnect()
     } else {
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
-      volatile_packet.SOT &= ~(CONNECTED); // disable online flag 
-      timeoutSOT.once(0.01, debouceHandlerSOT);
+      SOT &= ~(CONNECTED); // disable online flag 
+      timeoutSOT.once(0.1, debouceHandlerSOT);
       delay(2000); 
     }
   }
@@ -705,10 +510,102 @@ void publishPacket()
 }
 
 /* Interrupts routine */
+void canISR(CAN_FRAME *rxMsg)
+{
+  mode = !mode;
+  digitalWrite(EMBEDDED_LED, mode);
+
+  volatile_packet.timestamp = millis();
+
+  if(rxMsg->id==IMU_ACC_ID)
+  {
+    memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg->data.uint8, sizeof(imu_acc_t));
+    //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
+    //Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
+    //Serial.printf("ACC Y = %f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
+  }
+
+  if(rxMsg->id==IMU_DPS_ID)
+  {
+    memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg->data.uint8, sizeof(imu_dps_t));
+    //Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
+    //Serial.printf("DPS Y = %d\r\n", volatile_packet.imu_dps.dps_y);
+    //Serial.printf("DPS Z = %d\r\n", volatile_packet.imu_dps.dps_z);
+  }
+
+  if(rxMsg->id==ANGLE_ID)
+  {
+    memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg->data.uint8, sizeof(Angle_t));
+    //Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
+    //Serial.printf("Angle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
+  }
+
+  if(rxMsg->id==RPM_ID)
+  {
+    memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
+    //Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
+  }
+
+  if(rxMsg->id==SPEED_ID)
+  {
+    memcpy(&volatile_packet.speed, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
+    //Serial.printf("Speed = %d\r\n", volatile_packet.speed);
+  }
+
+  if(rxMsg->id==TEMPERATURE_ID)
+  {
+    memcpy(&volatile_packet.temperature, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    //Serial.printf("Motor = %d\r\n", volatile_packet.temperature);
+  }
+
+  if(rxMsg->id==FLAGS_ID)
+  {
+    memcpy(&volatile_packet.flags, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    //Serial.printf("Flags = %d\r\n", volatile_packet.flags);
+  }
+
+  if(rxMsg->id==SOC_ID)
+  {
+    memcpy(&volatile_packet.SOC, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    //Serial.printf("SOC = %d\r\n", volatile_packet.SOC);
+  }
+
+  if(rxMsg->id==CVT_ID)
+  {
+    memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    //Serial.printf("CVT = %d\r\n", volatile_packet.cvt);
+  }
+
+  if(rxMsg->id==VOLTAGE_ID)
+  {
+    memcpy(&volatile_packet.volt, (float *)rxMsg->data.uint8, sizeof(float));
+    //Serial.printf("Volt = %f\r\n", volatile_packet.volt);
+  }
+
+  if(rxMsg->id==CURRENT_ID)
+  {
+    memcpy(&volatile_packet.current, (float *)rxMsg->data.uint8, sizeof(float));
+    //Serial.printf("Current = %f\r\n", volatile_packet.current);
+  }
+
+  if(rxMsg->id==LAT_ID)
+  {
+    memcpy(&volatile_packet.latitude, (double *)rxMsg->data.uint8, sizeof(double));
+    //Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
+  }  
+
+  if(rxMsg->id==LNG_ID)
+  {
+    memcpy(&volatile_packet.longitude, (double *)rxMsg->data.uint8, sizeof(double));
+    //Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
+  }
+}
+
 void debouceHandlerSOT()
 {
-  state_buffer.push(SOT_ST);
-  //state_buffer.push(DEBUG_ST);
+  /* Sent State of Telemetry (SOT) */
+  txMsg.data.uint8[0] = SOT;
+  CAN.sendFrame(txMsg); 
 }
 
 void ticker40HzISR()
