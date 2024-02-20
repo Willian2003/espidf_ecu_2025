@@ -53,6 +53,7 @@
 CAN_FRAME txMsg;
 Ticker timeoutSOT; 
 Ticker ticker40Hz;
+Ticker ticker200mHz;
 
 /* Debug Variables */
 bool savingBlink = false;
@@ -79,6 +80,7 @@ File root, dataFile;
 int pulse_counter = 0;
 bool mode = false;
 bool saveFlag = false;
+bool sendFlag = false;
 
 /* States Machines */
 void SdStateMachine(void *pvParameters);
@@ -87,6 +89,7 @@ void ConnStateMachine(void *pvParameters);
 void canISR(CAN_FRAME *rxMsg);
 void debouceHandlerSOT();
 void ticker40HzISR();
+void ticker200mHzISR(void);
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
@@ -410,6 +413,10 @@ void ConnStateMachine(void *pvParameters)
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
+  mqttClient.setBufferSize(1024);
+
+  ticker200mHz.attach(5.0, ticker200mHzISR);
+
   while(1)
   {
     if(!mqttClient.connected())
@@ -419,7 +426,11 @@ void ConnStateMachine(void *pvParameters)
       gsmReconnect();
     }
 
-    publishPacket();
+    if(sendFlag)
+    {
+      publishPacket();
+      sendFlag = false; 
+    }
 
     mqttClient.loop();
     vTaskDelay(1);
@@ -479,34 +490,49 @@ void gsmReconnect()
 
 void publishPacket()  
 {
-  StaticJsonDocument<305> doc;
+  //StaticJsonDocument<310> doc;
 
-  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
-  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
-  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
-  doc["dpsx"] = volatile_packet.imu_dps.dps_x;
-  doc["dpsy"] = volatile_packet.imu_dps.dps_y;
-  doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  doc["roll"] = volatile_packet.Angle.Roll;
-  doc["pitch"] = volatile_packet.Angle.Pitch;
-  doc["rpm"] = volatile_packet.rpm;
-  doc["speed"] = volatile_packet.speed;
-  doc["motor"] = volatile_packet.temperature;
-  doc["flags"] = volatile_packet.flags;
-  doc["soc"] = volatile_packet.SOC; 
-  doc["cvt"] = volatile_packet.cvt; 
-  doc["volt"] = volatile_packet.volt; 
-  doc["current"] = volatile_packet.current; 
-  doc["latitude"] = volatile_packet.latitude;
-  doc["longitude"] = volatile_packet.longitude;
-  //doc["fuel_level"] = volatile_packet.fuel;
-  doc["timestamp"] = volatile_packet.timestamp;
+  //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
+  //doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
+  //doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
+  //doc["dpsx"] = volatile_packet.imu_dps.dps_x;
+  //doc["dpsy"] = volatile_packet.imu_dps.dps_y;
+  //doc["dpsz"] = volatile_packet.imu_dps.dps_z;
+  //doc["roll"] = volatile_packet.Angle.Roll;
+  //doc["pitch"] = volatile_packet.Angle.Pitch;
+  //doc["rpm"] = volatile_packet.rpm;
+  //doc["speed"] = volatile_packet.speed;
+  //doc["motor"] = volatile_packet.temperature;
+  //doc["flags"] = volatile_packet.flags;
+  //doc["soc"] = volatile_packet.SOC; 
+  //doc["cvt"] = volatile_packet.cvt; 
+  //doc["volt"] = volatile_packet.volt; 
+  //doc["current"] = volatile_packet.current; 
+  //doc["latitude"] = volatile_packet.latitude;
+  //doc["longitude"] = volatile_packet.longitude; 
+  ////doc["fuel_level"] = volatile_packet.fuel;
+  //doc["timestamp"] = volatile_packet.timestamp;
 
   //Serial.printf("Json Size = %d\r\n", doc.size());
+  uint8_t volatile_bytes[sizeof(volatile_packet)];
 
-  memset(msg, 0, sizeof(msg));
-  serializeJson(doc, msg);
-  mqttClient.publish("/logging", msg);
+
+  //memset(msg, 0, sizeof(msg));
+  memcpy(&volatile_bytes, (uint8_t *)&volatile_packet, sizeof(volatile_packet));
+  //memcpy(msg, volatile_bytes, sizeof(volatile_bytes));
+  //serializeJson(doc, msg);
+  //Serial.println(strlen(volatile_bytes));
+  
+  mqttClient.beginPublish("/logging", 1024, false);
+  for(int i = 0; i < sizeof(volatile_bytes); i++)
+  {
+    mqttClient.write(volatile_bytes[i]);
+    //Serial.println(volatile_bytes[i]);
+    //Serial.println();
+  }
+  //Serial.println();
+  mqttClient.endPublish();
+  //mqttClient.publish("/logging", msg);
 }
 
 /* Interrupts routine */
@@ -611,4 +637,9 @@ void debouceHandlerSOT()
 void ticker40HzISR()
 {
   saveFlag = true;
+}
+
+void ticker200mHzISR()
+{
+  sendFlag = true;
 }
