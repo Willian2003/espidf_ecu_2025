@@ -143,26 +143,26 @@ void pinConfig()
 
 void setupVolatilePacket()
 {
-  volatile_packet.imu_acc.acc_x = 0;
-  volatile_packet.imu_acc.acc_y = 0;
-  volatile_packet.imu_acc.acc_z = 0;
-  volatile_packet.imu_dps.dps_x = 0;
-  volatile_packet.imu_dps.dps_y = 0;
-  volatile_packet.imu_dps.dps_z = 0;
-  volatile_packet.Angle.Roll    = 0;
-  volatile_packet.Angle.Pitch   = 0;
-  volatile_packet.rpm           = 0;
-  volatile_packet.speed         = 0;
-  volatile_packet.temperature   = 0;
-  volatile_packet.flags         = 0;
-  volatile_packet.SOC           = 0;
-  volatile_packet.cvt           = 0;
+  volatile_packet.imu_acc.acc_x = 0x0FFF;
+  volatile_packet.imu_acc.acc_y = 0x0FEF;
+  volatile_packet.imu_acc.acc_z = 0x0FDF;
+  volatile_packet.imu_dps.dps_x = 0x0FCF;
+  volatile_packet.imu_dps.dps_y = 0x0FBF;
+  volatile_packet.imu_dps.dps_z = 0x0FAF;
+  volatile_packet.Angle.Roll    = 0x0F9F;
+  volatile_packet.Angle.Pitch   = 0x0F8F;
+  volatile_packet.rpm           = 0x0F7F;
+  volatile_packet.speed         = 0x0F6F;
+  volatile_packet.temperature   = 0xF5;
+  volatile_packet.flags         = 0xF4;
+  volatile_packet.SOC           = 0xF3;
+  volatile_packet.cvt           = 0xF2;
   //volatile_packet.fuel          = 0;
-  volatile_packet.volt          = 0;
-  volatile_packet.current       = 0;
-  volatile_packet.latitude      = -12.70814; 
-  volatile_packet.longitude     = -38.1732; 
-  volatile_packet.timestamp     = 0;
+  volatile_packet.volt          = 0xF1F1F1F1;
+  volatile_packet.current       = 0xF0F0F0F0;
+  volatile_packet.latitude      = 0xEFEFEFEFEFEFEFEF; 
+  volatile_packet.longitude     = 0xEEEEEEEEEEEEEEEE; 
+  volatile_packet.timestamp     = 0xEDEDEDED;
 }
 
 void taskSetup()
@@ -346,6 +346,9 @@ String packetToString(bool err)
   return dataString;
 }
 
+uint8_t volatile_bytes[1600];
+int volatile_position = 0;
+
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
@@ -365,7 +368,7 @@ void ConnStateMachine(void *pvParameters)
   }
 
   Serial.print("Waiting for network...");
-  if(!modem.waitForNetwork(240000L))
+  if(!modem.waitForNetwork(160000L))
   {
     Serial.println("fail");
     SOT |= ERROR_CONECTION;
@@ -413,9 +416,9 @@ void ConnStateMachine(void *pvParameters)
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
-  mqttClient.setBufferSize(1024);
+  mqttClient.setBufferSize(8000);
 
-  ticker200mHz.attach(5.0, ticker200mHzISR);
+  ticker200mHz.attach(50.0, ticker200mHzISR);
 
   while(1)
   {
@@ -426,11 +429,7 @@ void ConnStateMachine(void *pvParameters)
       gsmReconnect();
     }
 
-    if(sendFlag)
-    {
       publishPacket();
-      sendFlag = false; 
-    }
 
     mqttClient.loop();
     vTaskDelay(1);
@@ -494,7 +493,7 @@ void publishPacket()
 
   //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
   //doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
-  //doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
+  //doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
   //doc["dpsx"] = volatile_packet.imu_dps.dps_x;
   //doc["dpsy"] = volatile_packet.imu_dps.dps_y;
   //doc["dpsz"] = volatile_packet.imu_dps.dps_z;
@@ -510,29 +509,56 @@ void publishPacket()
   //doc["current"] = volatile_packet.current; 
   //doc["latitude"] = volatile_packet.latitude;
   //doc["longitude"] = volatile_packet.longitude; 
-  ////doc["fuel_level"] = volatile_packet.fuel;
   //doc["timestamp"] = volatile_packet.timestamp;
 
   //Serial.printf("Json Size = %d\r\n", doc.size());
-  uint8_t volatile_bytes[sizeof(volatile_packet)];
-
+  
 
   //memset(msg, 0, sizeof(msg));
-  memcpy(&volatile_bytes, (uint8_t *)&volatile_packet, sizeof(volatile_packet));
+
+  if (volatile_position + 64 > 1600) {
+        // Handle the case when the array is full, for example by resetting the current position to the beginning.
+        volatile_position = 0;
+    }
+
+
+    uint8_t a[sizeof(mqtt_packet_t)];
+    // memcpy(&volatile_bytes[volatile_position], (char *)&volatile_packet, 64);
+    //memcpy(&volatile_bytes, &teste, sizeof(teste));
+    //memcpy(&a, (uint8_t *)&aaa, sizeof(teste_t));
+
+
+    memcpy(&a, (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
+    memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
+  
+  volatile_position += 64;
+
   //memcpy(msg, volatile_bytes, sizeof(volatile_bytes));
   //serializeJson(doc, msg);
   //Serial.println(strlen(volatile_bytes));
-  
-  mqttClient.beginPublish("/logging", 1024, false);
-  for(int i = 0; i < sizeof(volatile_bytes); i++)
-  {
-    mqttClient.write(volatile_bytes[i]);
-    //Serial.println(volatile_bytes[i]);
-    //Serial.println();
+
+  if(sendFlag) {
+
+    Serial.println("Sending data");
+    for(int i = 0; i < sizeof(volatile_bytes); i++)
+      Serial.printf("0x%2X ", volatile_bytes[i]);
+    Serial.println();
+    // mqttClient.beginPublish("/logging", sizeof(volatile_bytes), false);
+    // Serial.println("Sending data 2");
+    // for(int i = 0; i < sizeof(volatile_bytes); i++)
+    // {
+    //   mqttClient.write(volatile_bytes[i]);
+    // }
+    // Serial.println("left for");
+    // mqttClient.endPublish();
+    // char meuovo[8000] = "meuovo";
+    // memcpy(&meuovo[5], "pedro", 5);
+
+    //mqttClient.publish("/logging", teste, sizeof(teste));
+    mqttClient.publish("/logging", volatile_bytes, sizeof(volatile_bytes));
+    Serial.println("Sent");
+      sendFlag = false; 
   }
-  //Serial.println();
-  mqttClient.endPublish();
-  //mqttClient.publish("/logging", msg);
 }
 
 /* Interrupts routine */
