@@ -537,12 +537,13 @@ void publishPacket()
   //serializeJson(doc, msg);
   //Serial.println(strlen(volatile_bytes));
 
+  Serial.println(mqttClient.state());
   if(sendFlag) {
 
     Serial.println("Sending data");
-    for(int i = 0; i < sizeof(volatile_bytes); i++)
-      Serial.printf("0x%2X ", volatile_bytes[i]);
-    Serial.println();
+    //for(int i = 0; i < sizeof(volatile_bytes); i++)
+    //  Serial.printf("0x%2X ", volatile_bytes[i]);
+    //Serial.println();
     // mqttClient.beginPublish("/logging", sizeof(volatile_bytes), false);
     // Serial.println("Sending data 2");
     // for(int i = 0; i < sizeof(volatile_bytes); i++)
