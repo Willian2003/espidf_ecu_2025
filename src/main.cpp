@@ -53,7 +53,8 @@
 CAN_FRAME txMsg;
 Ticker timeoutSOT; 
 Ticker ticker40Hz;
-Ticker ticker200mHz;
+Ticker ticker1Hz;
+Ticker ticker20Hz;
 
 /* Debug Variables */
 bool savingBlink = false;
@@ -63,6 +64,8 @@ uint8_t SOT = DISCONNECTED;
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
+uint8_t volatile_bytes[1280];
+int volatile_position = 0;
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 3000;
@@ -81,6 +84,7 @@ int pulse_counter = 0;
 bool mode = false;
 bool saveFlag = false;
 bool sendFlag = false;
+bool buff=false;
 
 /* States Machines */
 void SdStateMachine(void *pvParameters);
@@ -89,7 +93,8 @@ void ConnStateMachine(void *pvParameters);
 void canISR(CAN_FRAME *rxMsg);
 void debouceHandlerSOT();
 void ticker40HzISR();
-void ticker200mHzISR(void);
+void ticker1HzISR(void);
+void ticker20HzISR(void);
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
@@ -346,9 +351,6 @@ String packetToString(bool err)
   return dataString;
 }
 
-uint8_t volatile_bytes[1280];
-int volatile_position = 0;
-
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
@@ -416,9 +418,10 @@ void ConnStateMachine(void *pvParameters)
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
-  mqttClient.setBufferSize(8000);
+  mqttClient.setBufferSize(MAX_GPRS_BUFFER-1);
 
-  ticker200mHz.attach(5.0, ticker200mHzISR);
+  ticker1Hz.attach(1.0, ticker1HzISR);
+  ticker20Hz.attach(1/20.0, ticker20HzISR);
 
   while(1)
   {
@@ -429,7 +432,7 @@ void ConnStateMachine(void *pvParameters)
       gsmReconnect();
     }
 
-      publishPacket();
+    publishPacket();
 
     mqttClient.loop();
     vTaskDelay(1);
@@ -489,76 +492,24 @@ void gsmReconnect()
 
 void publishPacket()  
 {
-  //StaticJsonDocument<310> doc;
+  if(volatile_position + sizeof(mqtt_packet_t) > MSG_BUFFER_SIZE) 
+  {
+    // Handle the case when the array is full, for example by resetting the current position to the beginning.
+    volatile_position = 0;
+  }
 
-  //doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
-  //doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
-  //doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000;
-  //doc["dpsx"] = volatile_packet.imu_dps.dps_x;
-  //doc["dpsy"] = volatile_packet.imu_dps.dps_y;
-  //doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  //doc["roll"] = volatile_packet.Angle.Roll;
-  //doc["pitch"] = volatile_packet.Angle.Pitch;
-  //doc["rpm"] = volatile_packet.rpm;
-  //doc["speed"] = volatile_packet.speed;
-  //doc["motor"] = volatile_packet.temperature;
-  //doc["flags"] = volatile_packet.flags;
-  //doc["soc"] = volatile_packet.SOC; 
-  //doc["cvt"] = volatile_packet.cvt; 
-  //doc["volt"] = volatile_packet.volt; 
-  //doc["current"] = volatile_packet.current; 
-  //doc["latitude"] = volatile_packet.latitude;
-  //doc["longitude"] = volatile_packet.longitude; 
-  //doc["timestamp"] = volatile_packet.timestamp;
-
-  //Serial.printf("Json Size = %d\r\n", doc.size());
-  
-
-  //memset(msg, 0, sizeof(msg));
-
-  if (volatile_position + 64 > 1280) {
-        // Handle the case when the array is full, for example by resetting the current position to the beginning.
-        volatile_position = 0;
-    }
-
-
-    uint8_t a[sizeof(mqtt_packet_t)];
-    // memcpy(&volatile_bytes[volatile_position], (char *)&volatile_packet, 64);
-    //memcpy(&volatile_bytes, &teste, sizeof(teste));
-    //memcpy(&a, (uint8_t *)&aaa, sizeof(teste_t));
-
-
-    memcpy(&a, (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
+  if(buff)
+  {
     memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
-  
-  volatile_position += 64;
 
-  //memcpy(msg, volatile_bytes, sizeof(volatile_bytes));
-  //serializeJson(doc, msg);
-  //Serial.println(strlen(volatile_bytes));
+    volatile_position += sizeof(mqtt_packet_t);
+    buff = false;
+  }
 
-  //Serial.println(mqttClient.state());
-  if(sendFlag) {
-
-    Serial.println("Sending data");
-    //for(int i = 0; i < sizeof(volatile_bytes); i++)
-    //  Serial.printf("0x%2X ", volatile_bytes[i]);
-    //Serial.println();
-    // mqttClient.beginPublish("/logging", sizeof(volatile_bytes), false);
-    // Serial.println("Sending data 2");
-    // for(int i = 0; i < sizeof(volatile_bytes); i++)
-    // {
-    //   mqttClient.write(volatile_bytes[i]);
-    // }
-    // Serial.println("left for");
-    // mqttClient.endPublish();
-    // char meuovo[8000] = "meuovo";
-    // memcpy(&meuovo[5], "pedro", 5);
-
-    //mqttClient.publish("/logging", teste, sizeof(teste));
+  if(sendFlag) 
+  {
     mqttClient.publish("/logging", volatile_bytes, sizeof(volatile_bytes));
-    Serial.println("Sent");
-      sendFlag = false; 
+    sendFlag = false; 
   }
 }
 
@@ -573,15 +524,15 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==IMU_ACC_ID)
   {
     memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg->data.uint8, sizeof(imu_acc_t));
-    //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
-    //Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
+    Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
     //Serial.printf("ACC Y = %f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
+    //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
   }
 
   if(rxMsg->id==IMU_DPS_ID)
   {
     memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg->data.uint8, sizeof(imu_dps_t));
-    //Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
+    Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
     //Serial.printf("DPS Y = %d\r\n", volatile_packet.imu_dps.dps_y);
     //Serial.printf("DPS Z = %d\r\n", volatile_packet.imu_dps.dps_z);
   }
@@ -589,14 +540,14 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==ANGLE_ID)
   {
     memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg->data.uint8, sizeof(Angle_t));
-    //Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
+    Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
     //Serial.printf("Angle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
   }
 
   if(rxMsg->id==RPM_ID)
   {
     memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
-    //Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
+    Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
   }
 
   if(rxMsg->id==SPEED_ID)
@@ -614,7 +565,7 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==FLAGS_ID)
   {
     memcpy(&volatile_packet.flags, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
-    //Serial.printf("Flags = %d\r\n", volatile_packet.flags);
+    Serial.printf("Flags = %d\r\n", volatile_packet.flags);
   }
 
   if(rxMsg->id==SOC_ID)
@@ -644,13 +595,20 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==LAT_ID)
   {
     memcpy(&volatile_packet.latitude, (double *)rxMsg->data.uint8, sizeof(double));
-    //Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
+    Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
   }  
 
   if(rxMsg->id==LNG_ID)
   {
     memcpy(&volatile_packet.longitude, (double *)rxMsg->data.uint8, sizeof(double));
-    //Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
+    Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
+  }
+
+  if(rxMsg->id==THROTTLE_ID)
+  {
+    uint8_t debug_throttle = 0;
+    memcpy(&debug_throttle, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    Serial.printf("Throttle = %d\r\n", debug_throttle);
   }
 }
 
@@ -666,7 +624,12 @@ void ticker40HzISR()
   saveFlag = true;
 }
 
-void ticker200mHzISR()
+void ticker1HzISR()
 {
   sendFlag = true;
+}
+
+void ticker20HzISR()
+{
+  buff = true;
 }
