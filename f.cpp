@@ -53,13 +53,16 @@
 CAN_FRAME txMsg;
 Ticker timeoutSOT; 
 Ticker ticker40Hz;
-Ticker ticker200mHz;
+Ticker ticker1Hz, gprs_msg_buffer;
 
 /* Debug Variables */
 bool savingBlink = false;
 bool mounted = false;
+bool gprs_buffer = false;
+uint16_t volatile_position = 0;
 /* Global Variables */
 uint8_t SOT = DISCONNECTED;
+uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
@@ -89,7 +92,8 @@ void ConnStateMachine(void *pvParameters);
 void canISR(CAN_FRAME *rxMsg);
 void debouceHandlerSOT();
 void ticker40HzISR();
-void ticker200mHzISR(void);
+void ticker1HzISR(void);
+void gprsISR(void);
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
@@ -346,9 +350,6 @@ String packetToString(bool err)
   return dataString;
 }
 
-uint8_t volatile_bytes[1280];
-int volatile_position = 0;
-
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
@@ -368,7 +369,7 @@ void ConnStateMachine(void *pvParameters)
   }
 
   Serial.print("Waiting for network...");
-  if(!modem.waitForNetwork(128000L))
+  if(!modem.waitForNetwork(160000L))
   {
     Serial.println("fail");
     SOT |= ERROR_CONECTION;
@@ -417,8 +418,10 @@ void ConnStateMachine(void *pvParameters)
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
   mqttClient.setBufferSize(8000);
+  
 
-  ticker200mHz.attach(5.0, ticker200mHzISR);
+  ticker1Hz.attach(1.0, ticker1HzISR);
+  gprs_msg_buffer.attach(1/20.0, gprsISR);
 
   while(1)
   {
@@ -429,7 +432,7 @@ void ConnStateMachine(void *pvParameters)
       gsmReconnect();
     }
 
-      publishPacket();
+    publishPacket();
 
     mqttClient.loop();
     vTaskDelay(1);
@@ -516,29 +519,40 @@ void publishPacket()
 
   //memset(msg, 0, sizeof(msg));
 
-  if (volatile_position + 64 > 1280) {
-        // Handle the case when the array is full, for example by resetting the current position to the beginning.
-        volatile_position = 0;
-    }
+  //if (volatile_position + 64 > 1600) {
+  //      // Handle the case when the array is full, for example by resetting the current position to the beginning.
+  //      volatile_position = 0;
+  //  }
 
 
-    uint8_t a[sizeof(mqtt_packet_t)];
+    //uint8_t a[sizeof(mqtt_packet_t)];
     // memcpy(&volatile_bytes[volatile_position], (char *)&volatile_packet, 64);
     //memcpy(&volatile_bytes, &teste, sizeof(teste));
     //memcpy(&a, (uint8_t *)&aaa, sizeof(teste_t));
 
 
-    memcpy(&a, (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
-    memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
+    //memcpy(&a, (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
+    //memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
   
-  volatile_position += 64;
+  //volatile_position += 64;
 
   //memcpy(msg, volatile_bytes, sizeof(volatile_bytes));
   //serializeJson(doc, msg);
   //Serial.println(strlen(volatile_bytes));
+  if(gprs_buffer)
+  {
+    Serial.println("bom demaisi");
+    if(volatile_position + 64 > MSG_BUFFER_SIZE)
+      volatile_position = 0;
 
-  //Serial.println(mqttClient.state());
-  if(sendFlag) {
+    memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t)); 
+
+    volatile_position += 64;
+    gprs_buffer = false;
+  }
+
+  if(sendFlag) 
+  {
 
     Serial.println("Sending data");
     //for(int i = 0; i < sizeof(volatile_bytes); i++)
@@ -556,9 +570,9 @@ void publishPacket()
     // memcpy(&meuovo[5], "pedro", 5);
 
     //mqttClient.publish("/logging", teste, sizeof(teste));
-    mqttClient.publish("/logging", volatile_bytes, sizeof(volatile_bytes));
+    mqttClient.publish("/logging", volatile_bytes, sizeof(volatile_bytes), false);
     Serial.println("Sent");
-      sendFlag = false; 
+    sendFlag = false; 
   }
 }
 
@@ -666,7 +680,12 @@ void ticker40HzISR()
   saveFlag = true;
 }
 
-void ticker200mHzISR()
+void ticker1HzISR()
 {
   sendFlag = true;
+}
+
+void gprsISR(void)
+{
+  gprs_buffer = true;
 }

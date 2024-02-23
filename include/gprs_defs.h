@@ -11,7 +11,7 @@
 /* Configure TinyGSM library */
 #define TINY_GSM_MODEM_SIM800    // Modem is SIM800
 #define TINY_GSM_RX_BUFFER  1024 // Set RX buffer to 1Kb
-#define MSG_BUFFER_SIZE     1024
+#define MSG_BUFFER_SIZE     1280
 
 #include <TinyGSM.h>
 #include <TinyGsmClient.h>
