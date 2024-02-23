@@ -64,7 +64,7 @@ uint8_t SOT = DISCONNECTED;
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
-uint8_t volatile_bytes[1280];
+uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 int volatile_position = 0;
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
@@ -84,7 +84,7 @@ int pulse_counter = 0;
 bool mode = false;
 bool saveFlag = false;
 bool sendFlag = false;
-bool buff=false;
+bool buff = false;
 
 /* States Machines */
 void SdStateMachine(void *pvParameters);
@@ -148,26 +148,26 @@ void pinConfig()
 
 void setupVolatilePacket()
 {
-  volatile_packet.imu_acc.acc_x = 0x0FFF;
-  volatile_packet.imu_acc.acc_y = 0x0FEF;
-  volatile_packet.imu_acc.acc_z = 0x0FDF;
-  volatile_packet.imu_dps.dps_x = 0x0FCF;
-  volatile_packet.imu_dps.dps_y = 0x0FBF;
-  volatile_packet.imu_dps.dps_z = 0x0FAF;
-  volatile_packet.Angle.Roll    = 0x0F9F;
-  volatile_packet.Angle.Pitch   = 0x0F8F;
-  volatile_packet.rpm           = 0x0F7F;
-  volatile_packet.speed         = 0x0F6F;
-  volatile_packet.temperature   = 0xF5;
-  volatile_packet.flags         = 0xF4;
-  volatile_packet.SOC           = 0xF3;
-  volatile_packet.cvt           = 0xF2;
+  volatile_packet.imu_acc.acc_x = 0;
+  volatile_packet.imu_acc.acc_y = 0;
+  volatile_packet.imu_acc.acc_z = 0;
+  volatile_packet.imu_dps.dps_x = 0;
+  volatile_packet.imu_dps.dps_y = 0;
+  volatile_packet.imu_dps.dps_z = 0;
+  volatile_packet.Angle.Roll    = 0;
+  volatile_packet.Angle.Pitch   = 0;
+  volatile_packet.rpm           = 0;
+  volatile_packet.speed         = 0;
+  volatile_packet.temperature   = 0;
+  volatile_packet.flags         = 0;
+  volatile_packet.SOC           = 0;
+  volatile_packet.cvt           = 0;
   //volatile_packet.fuel          = 0;
-  volatile_packet.volt          = 0xF1F1F1F1;
-  volatile_packet.current       = 0xF0F0F0F0;
-  volatile_packet.latitude      = 0xEFEFEFEFEFEFEFEF; 
-  volatile_packet.longitude     = 0xEEEEEEEEEEEEEEEE; 
-  volatile_packet.timestamp     = 0xEDEDEDED;
+  volatile_packet.volt          = 0;
+  volatile_packet.current       = 0;
+  volatile_packet.latitude      = 0; 
+  volatile_packet.longitude     = 0; 
+  volatile_packet.timestamp     = 0;
 }
 
 void taskSetup()
@@ -524,7 +524,7 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==IMU_ACC_ID)
   {
     memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg->data.uint8, sizeof(imu_acc_t));
-    Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
+    //Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
     //Serial.printf("ACC Y = %f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
     //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
   }
@@ -532,7 +532,7 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==IMU_DPS_ID)
   {
     memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg->data.uint8, sizeof(imu_dps_t));
-    Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
+    //Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
     //Serial.printf("DPS Y = %d\r\n", volatile_packet.imu_dps.dps_y);
     //Serial.printf("DPS Z = %d\r\n", volatile_packet.imu_dps.dps_z);
   }
@@ -540,14 +540,14 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==ANGLE_ID)
   {
     memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg->data.uint8, sizeof(Angle_t));
-    Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
+    //Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
     //Serial.printf("Angle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
   }
 
   if(rxMsg->id==RPM_ID)
   {
     memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
-    Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
+    //Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
   }
 
   if(rxMsg->id==SPEED_ID)
@@ -565,7 +565,7 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==FLAGS_ID)
   {
     memcpy(&volatile_packet.flags, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
-    Serial.printf("Flags = %d\r\n", volatile_packet.flags);
+    //Serial.printf("Flags = %d\r\n", volatile_packet.flags);
   }
 
   if(rxMsg->id==SOC_ID)
@@ -595,20 +595,13 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==LAT_ID)
   {
     memcpy(&volatile_packet.latitude, (double *)rxMsg->data.uint8, sizeof(double));
-    Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
+    //Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
   }  
 
   if(rxMsg->id==LNG_ID)
   {
     memcpy(&volatile_packet.longitude, (double *)rxMsg->data.uint8, sizeof(double));
-    Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
-  }
-
-  if(rxMsg->id==THROTTLE_ID)
-  {
-    uint8_t debug_throttle = 0;
-    memcpy(&debug_throttle, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
-    Serial.printf("Throttle = %d\r\n", debug_throttle);
+    //Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
   }
 }
 
