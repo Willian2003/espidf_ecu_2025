@@ -184,25 +184,23 @@ void SdStateMachine(void *pvParameters)
   do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
 
   if(!mounted) 
-  { 
-    Serial.println("SD mounted error!!"); 
-    return; 
-  }
-
-  sdSave(true);
+    Serial.println("SD mounted error!!");
+    //return; 
+  else 
+    sdSave(true);
 
   /* For synchronization between ECU and panel */
   timeoutSOT.once(0.1, debouceHandlerSOT);
 
   while(1)
   {
-    if(saveFlag)
+    if(saveFlag && mounted)
     {
       sdSave(false);
       saveFlag = false;
     }
 
-    vTaskDelay(1);
+    vTaskDelay((mounted ? 1 : 100));
   }
 }
 
