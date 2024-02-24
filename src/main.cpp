@@ -404,6 +404,7 @@ void ConnStateMachine(void *pvParameters)
 
   mqttClient.setServer(server, PORT);
   mqttClient.setCallback(gsmCallback);
+  mqttClient.setBufferSize(MSG_BUFFER_SIZE);
 
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
@@ -425,7 +426,6 @@ void ConnStateMachine(void *pvParameters)
 }
 
 /* Connectivity State Machine Global Functions */
-// GPRS Functions
 void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
