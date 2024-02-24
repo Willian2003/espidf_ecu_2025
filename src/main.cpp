@@ -77,7 +77,8 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // SD variables
 char file_name[20];
-File root, dataFile;
+File root; 
+File dataFile;
 
 // vars do timer millis que determina o intervalo entre medidas
 int pulse_counter = 0;
@@ -506,7 +507,7 @@ void publishPacket()
 
   if(sendFlag) 
   {
-    mqttClient.publish("/logging", volatile_bytes, sizeof(volatile_bytes));
+    mqttClient.publish("/logging", volatile_bytes, MSG_BUFFER_SIZE);
     sendFlag = false; 
   }
 }
