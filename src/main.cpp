@@ -51,7 +51,7 @@
 
 /* ESP Tools */
 CAN_FRAME txMsg;
-Ticker timeoutSOT; 
+Ticker TimeOutSOT; 
 Ticker ticker40Hz;
 Ticker ticker1Hz;
 Ticker ticker20Hz;
@@ -80,7 +80,7 @@ char file_name[20];
 File root; 
 File dataFile;
 
-// vars do timer millis que determina o intervalo entre medidas
+// millis timer vars that determines the interval between measurements
 int pulse_counter = 0;
 bool mode = false;
 bool saveFlag = false;
@@ -92,8 +92,8 @@ void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
 void canISR(CAN_FRAME *rxMsg);
-void debouceHandlerSOT();
-void ticker40HzISR();
+void debouceHandlerSOT(void);
+void ticker40HzISR(void);
 void ticker1HzISR(void);
 void ticker20HzISR(void);
 /* Setup Descriptions */
@@ -103,8 +103,8 @@ void taskSetup();
 /* SD State Machine Global Functions */
 bool sdConfig();
 int countFiles(File dir);
-String packetToString(bool err);
 void sdSave(bool set); 
+String packetToString(bool err);
 /* Connectivity State Machine Global Functions */
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
@@ -176,7 +176,7 @@ void taskSetup()
   xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
   // This state machine is responsible for the Basic CAN logging
   xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
-  // This state machine is responsible for the GPRS and possible bluetooth connection
+  // This state machine is responsible for the GPRS connection
 }
 
 /* SD State Machine */
@@ -186,12 +186,11 @@ void SdStateMachine(void *pvParameters)
 
   if(!mounted) 
     Serial.println("SD mounted error!!");
-    //return; 
   else 
     sdSave(true);
 
   /* For synchronization between ECU and panel */
-  timeoutSOT.once(0.1, debouceHandlerSOT);
+  TimeOutSOT.once(0.1, debouceHandlerSOT);
 
   while(1)
   {
@@ -224,7 +223,7 @@ int countFiles(File dir)
   for(;;)
   {
     File entry = dir.openNextFile();
-    if (!entry)
+    if(!entry)
     {
       // no more files
       break;
@@ -373,7 +372,7 @@ void ConnStateMachine(void *pvParameters)
   {
     Serial.println("fail");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -390,7 +389,7 @@ void ConnStateMachine(void *pvParameters)
   {
     Serial.println(" fail");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -405,7 +404,7 @@ void ConnStateMachine(void *pvParameters)
     // http://esp32.local
     Serial.println("Error configuring mDNS. Rebooting in 1s...");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(1000);
     ESP.restart();
   }
@@ -413,11 +412,10 @@ void ConnStateMachine(void *pvParameters)
 
   mqttClient.setServer(server, PORT);
   mqttClient.setCallback(gsmCallback);
+  mqttClient.setBufferSize(MAX_GPRS_BUFFER-1);
 
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
-
-  mqttClient.setBufferSize(MAX_GPRS_BUFFER-1);
 
   ticker1Hz.attach(1.0, ticker1HzISR);
   ticker20Hz.attach(1/20.0, ticker20HzISR);
@@ -427,7 +425,7 @@ void ConnStateMachine(void *pvParameters)
     if(!mqttClient.connected())
     {
       SOT = DISCONNECTED; // disable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
       gsmReconnect();
     }
 
@@ -448,7 +446,7 @@ void gsmCallback(char *topic, byte *payload, unsigned int length)
 
   memset(payload_char, 0, sizeof(payload_char));
 
-  for(int i=0; i<length; i++)
+  for(int i = 0; i < length; i++)
   {
     Serial.print((char)payload[i]);
     payload_char[i] = (char)payload[i];
@@ -474,7 +472,7 @@ void gsmReconnect()
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
       SOT |= CONNECTED; // enable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -483,7 +481,7 @@ void gsmReconnect()
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
       SOT &= ~(CONNECTED); // disable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
       delay(2000); 
     }
   }
