@@ -51,8 +51,10 @@
 
 /* ESP Tools */
 CAN_FRAME txMsg;
-Ticker timeoutSOT; 
+Ticker TimeOutSOT; 
 Ticker ticker40Hz;
+Ticker ticker1Hz;
+Ticker ticker20Hz;
 
 /* Debug Variables */
 bool savingBlink = false;
@@ -62,6 +64,8 @@ uint8_t SOT = DISCONNECTED;
 const char *server = "64.227.19.172";
 char msg[MSG_BUFFER_SIZE];
 char payload_char[MSG_BUFFER_SIZE];
+uint8_t volatile_bytes[MSG_BUFFER_SIZE];
+int volatile_position = 0;
 
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 3000;
@@ -73,20 +77,25 @@ const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 // SD variables
 char file_name[20];
-File root, dataFile;
+File root; 
+File dataFile;
 
-// vars do timer millis que determina o intervalo entre medidas
+// millis timer vars that determines the interval between measurements
 int pulse_counter = 0;
 bool mode = false;
 bool saveFlag = false;
+bool sendFlag = false;
+bool buff = false;
 
 /* States Machines */
 void SdStateMachine(void *pvParameters);
 void ConnStateMachine(void *pvParameters);
 /* Interrupts routine */
 void canISR(CAN_FRAME *rxMsg);
-void debouceHandlerSOT();
-void ticker40HzISR();
+void debouceHandlerSOT(void);
+void ticker40HzISR(void);
+void ticker1HzISR(void);
+void ticker20HzISR(void);
 /* Setup Descriptions */
 void pinConfig();    
 void setupVolatilePacket();
@@ -94,8 +103,8 @@ void taskSetup();
 /* SD State Machine Global Functions */
 bool sdConfig();
 int countFiles(File dir);
-String packetToString(bool err);
 void sdSave(bool set); 
+String packetToString(bool err);
 /* Connectivity State Machine Global Functions */
 void gsmCallback(char *topic, byte *payload, unsigned int length);
 void gsmReconnect();
@@ -157,8 +166,8 @@ void setupVolatilePacket()
   //volatile_packet.fuel          = 0;
   volatile_packet.volt          = 0;
   volatile_packet.current       = 0;
-  volatile_packet.latitude      = -12.70814; 
-  volatile_packet.longitude     = -38.1732; 
+  volatile_packet.latitude      = 0; 
+  volatile_packet.longitude     = 0; 
   volatile_packet.timestamp     = 0;
 }
 
@@ -167,7 +176,7 @@ void taskSetup()
   xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 10000, NULL, 5, NULL, 0);
   // This state machine is responsible for the Basic CAN logging
   xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 10000, NULL, 5, NULL, 1);
-  // This state machine is responsible for the GPRS and possible bluetooth connection
+  // This state machine is responsible for the GPRS connection
 }
 
 /* SD State Machine */
@@ -176,13 +185,14 @@ void SdStateMachine(void *pvParameters)
   do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
 
   if(!mounted) 
-    Serial.println("SD mounted error!!");
-    //return; 
-  else 
+    Serial.println("SD mounted error!!"); 
+  else
     sdSave(true);
 
+
+
   /* For synchronization between ECU and panel */
-  timeoutSOT.once(0.1, debouceHandlerSOT);
+  TimeOutSOT.once(0.1, debouceHandlerSOT);
 
   while(1)
   {
@@ -215,7 +225,7 @@ int countFiles(File dir)
   for(;;)
   {
     File entry = dir.openNextFile();
-    if (!entry)
+    if(!entry)
     {
       // no more files
       break;
@@ -360,11 +370,11 @@ void ConnStateMachine(void *pvParameters)
   }
 
   Serial.print("Waiting for network...");
-  if(!modem.waitForNetwork(240000L))
+  if(!modem.waitForNetwork(128000L))
   {
     Serial.println("fail");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -381,7 +391,7 @@ void ConnStateMachine(void *pvParameters)
   {
     Serial.println(" fail");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(10000);
     return;
   }
@@ -396,7 +406,7 @@ void ConnStateMachine(void *pvParameters)
     // http://esp32.local
     Serial.println("Error configuring mDNS. Rebooting in 1s...");
     SOT |= ERROR_CONECTION;
-    timeoutSOT.once(0.1, debouceHandlerSOT);
+    TimeOutSOT.once(0.1, debouceHandlerSOT);
     delay(1000);
     ESP.restart();
   }
@@ -404,17 +414,20 @@ void ConnStateMachine(void *pvParameters)
 
   mqttClient.setServer(server, PORT);
   mqttClient.setCallback(gsmCallback);
-  mqttClient.setBufferSize(MSG_BUFFER_SIZE);
+  mqttClient.setBufferSize(MAX_GPRS_BUFFER-1);
 
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
+
+  ticker1Hz.attach(1.0, ticker1HzISR);
+  ticker20Hz.attach(1/20.0, ticker20HzISR);
 
   while(1)
   {
     if(!mqttClient.connected())
     {
       SOT = DISCONNECTED; // disable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
       gsmReconnect();
     }
 
@@ -434,7 +447,7 @@ void gsmCallback(char *topic, byte *payload, unsigned int length)
 
   memset(payload_char, 0, sizeof(payload_char));
 
-  for(int i=0; i<length; i++)
+  for(int i = 0; i < length; i++)
   {
     Serial.print((char)payload[i]);
     payload_char[i] = (char)payload[i];
@@ -460,7 +473,7 @@ void gsmReconnect()
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
       SOT |= CONNECTED; // enable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -469,7 +482,7 @@ void gsmReconnect()
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
       SOT &= ~(CONNECTED); // disable online flag 
-      timeoutSOT.once(0.1, debouceHandlerSOT);
+      TimeOutSOT.once(0.1, debouceHandlerSOT);
       delay(2000); 
     }
   }
@@ -477,34 +490,34 @@ void gsmReconnect()
 
 void publishPacket()  
 {
-  StaticJsonDocument<305> doc;
+  /* 
+    Send the message using JSON example: 
+      * 1 - StaticJsonDocument<305> doc;
+      * 2 - doc["data"] = data;
+      * 3 - memset(msg, 0, sizeof(msg));
+      * 4 - serializeJson(doc, msg);
+      * 5 - mqttClient.publish("/logging", msg)
+  */
 
-  doc["accx"] = (volatile_packet.imu_acc.acc_x*0.061)/1000;
-  doc["accy"] = (volatile_packet.imu_acc.acc_y*0.061)/1000; 
-  doc["accz"] = (volatile_packet.imu_acc.acc_z*0.061)/1000; 
-  doc["dpsx"] = volatile_packet.imu_dps.dps_x;
-  doc["dpsy"] = volatile_packet.imu_dps.dps_y;
-  doc["dpsz"] = volatile_packet.imu_dps.dps_z;
-  doc["roll"] = volatile_packet.Angle.Roll;
-  doc["pitch"] = volatile_packet.Angle.Pitch;
-  doc["rpm"] = volatile_packet.rpm;
-  doc["speed"] = volatile_packet.speed;
-  doc["motor"] = volatile_packet.temperature;
-  doc["flags"] = volatile_packet.flags;
-  doc["soc"] = volatile_packet.SOC; 
-  doc["cvt"] = volatile_packet.cvt; 
-  doc["volt"] = volatile_packet.volt; 
-  doc["current"] = volatile_packet.current; 
-  doc["latitude"] = volatile_packet.latitude;
-  doc["longitude"] = volatile_packet.longitude;
-  //doc["fuel_level"] = volatile_packet.fuel;
-  doc["timestamp"] = volatile_packet.timestamp;
+  if(volatile_position + sizeof(mqtt_packet_t) > MSG_BUFFER_SIZE) 
+  {
+    // Handle the case when the array is full, for example by resetting the current position to the beginning.
+    volatile_position = 0;
+  }
 
-  //Serial.printf("Json Size = %d\r\n", doc.size());
+  if(buff)
+  {
+    memcpy(&volatile_bytes[volatile_position], (uint8_t *)&volatile_packet, sizeof(mqtt_packet_t));
 
-  memset(msg, 0, sizeof(msg));
-  serializeJson(doc, msg);
-  mqttClient.publish("/logging", msg);
+    volatile_position += sizeof(mqtt_packet_t);
+    buff = false;
+  }
+
+  if(sendFlag) 
+  {
+    mqttClient.publish("/logging", volatile_bytes, MSG_BUFFER_SIZE);
+    sendFlag = false; 
+  }
 }
 
 /* Interrupts routine */
@@ -518,9 +531,9 @@ void canISR(CAN_FRAME *rxMsg)
   if(rxMsg->id==IMU_ACC_ID)
   {
     memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg->data.uint8, sizeof(imu_acc_t));
-    //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
     //Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
     //Serial.printf("ACC Y = %f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
+    //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
   }
 
   if(rxMsg->id==IMU_DPS_ID)
@@ -609,4 +622,14 @@ void debouceHandlerSOT()
 void ticker40HzISR()
 {
   saveFlag = true;
+}
+
+void ticker1HzISR()
+{
+  sendFlag = true;
+}
+
+void ticker20HzISR()
+{
+  buff = true;
 }
