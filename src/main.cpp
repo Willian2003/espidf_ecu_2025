@@ -489,6 +489,15 @@ void gsmReconnect()
 
 void publishPacket()  
 {
+  /* 
+    Send the message using JSON example: 
+      * 1 - StaticJsonDocument<305> doc;
+      * 2 - doc["data"] = data;
+      * 3 - memset(msg, 0, sizeof(msg));
+      * 4 - serializeJson(doc, msg);
+      * 5 - mqttClient.publish("/logging", msg)
+  */
+
   if(volatile_position + sizeof(mqtt_packet_t) > MSG_BUFFER_SIZE) 
   {
     // Handle the case when the array is full, for example by resetting the current position to the beginning.
