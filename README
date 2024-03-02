@@ -1,11 +1,6 @@
-###TODO:
-- REMEMBER TO WORK ON SPINLOCKS (isr issues)
+## Middle ECU
 
-- BASIC CAN LOGGING (in progress)
-- GPRS
-- BLUETOOTH
-- GPS
-
-## How does CAN work in the SCU:
-
-    The interrupt will use xTaskResumeFromISR to resume the can filter task.
+- micro-SD module storage
+- CAN Logging 
+- GPRS with MQTT comunication
+- `Sends 20 packets to the server in 1 second`
