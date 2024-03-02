@@ -189,8 +189,6 @@ void SdStateMachine(void *pvParameters)
   else
     sdSave(true);
 
-
-
   /* For synchronization between ECU and panel */
   TimeOutSOT.once(0.1, debouceHandlerSOT);
 
