@@ -22,7 +22,7 @@
 
 /* GPRS */
 #define MODEM_RST
-#define MODEM_TX      GPIO_NUM_32
-#define MODEM_RX      GPIO_NUM_33
+#define MODEM_TX      GPIO_NUM_17
+#define MODEM_RX      GPIO_NUM_16
 
 #endif
