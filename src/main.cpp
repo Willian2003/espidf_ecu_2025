@@ -22,7 +22,7 @@
 #endif
 
 /* Credentials Variables */
-#define TIM     // Uncomment this line and comment the others if this is your chip
+//#define TIM     // Uncomment this line and comment the others if this is your chip
 //#define CLARO   // Uncomment this line and comment the others if this is your chip
 //#define VIVO    // Uncomment this line and comment the others if this is your chip
 
@@ -59,6 +59,7 @@ Ticker ticker20Hz;
 /* Debug Variables */
 bool savingBlink = false;
 bool mounted = false;
+bool mode = false;
 /* Global Variables */
 uint8_t SOT = DISCONNECTED;
 const char *server = "64.227.19.172";
@@ -82,7 +83,7 @@ File dataFile;
 
 // millis timer vars that determines the interval between measurements
 int pulse_counter = 0;
-bool mode = false;
+// Flags to ticker function 
 bool saveFlag = false;
 bool sendFlag = false;
 bool buff = false;
@@ -113,7 +114,7 @@ void publishPacket();
 void setup()
 {
   Serial.begin(115200);
-  SerialAT.begin(115200, SERIAL_8N1, MODEM_TX, MODEM_RX);
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   
   pinConfig(); // Hardware and Interrupt Config
 
@@ -520,7 +521,7 @@ void publishPacket()
 
 /* Interrupts routine */
 void canISR(CAN_FRAME *rxMsg)
-{
+{ 
   mode = !mode;
   digitalWrite(EMBEDDED_LED, mode);
 
@@ -528,7 +529,7 @@ void canISR(CAN_FRAME *rxMsg)
 
   if(rxMsg->id==IMU_ACC_ID)
   {
-    memcpy(&volatile_packet.imu_acc, (imu_acc_t *)rxMsg->data.uint8, sizeof(imu_acc_t));
+    memcpy(&volatile_packet.imu_acc, (imu_acc_t *)&rxMsg->data.uint8, sizeof(imu_acc_t));
     //Serial.printf("ACC X = %f\r\n", (float)((volatile_packet.imu_acc.acc_x*0.061)/1000));
     //Serial.printf("ACC Y = %f\r\n", (float)((volatile_packet.imu_acc.acc_y*0.061)/1000));
     //Serial.printf("ACC Z = %f\r\n", (float)((volatile_packet.imu_acc.acc_z*0.061)/1000));
@@ -536,7 +537,7 @@ void canISR(CAN_FRAME *rxMsg)
 
   if(rxMsg->id==IMU_DPS_ID)
   {
-    memcpy(&volatile_packet.imu_dps, (imu_dps_t *)rxMsg->data.uint8, sizeof(imu_dps_t));
+    memcpy(&volatile_packet.imu_dps, (imu_dps_t *)&rxMsg->data.uint8, sizeof(imu_dps_t));
     //Serial.printf("DPS X = %d\r\n", volatile_packet.imu_dps.dps_x);
     //Serial.printf("DPS Y = %d\r\n", volatile_packet.imu_dps.dps_y);
     //Serial.printf("DPS Z = %d\r\n", volatile_packet.imu_dps.dps_z);
@@ -544,68 +545,68 @@ void canISR(CAN_FRAME *rxMsg)
 
   if(rxMsg->id==ANGLE_ID)
   {
-    memcpy(&volatile_packet.Angle, (Angle_t *)rxMsg->data.uint8, sizeof(Angle_t));
+    memcpy(&volatile_packet.Angle, (Angle_t *)&rxMsg->data.uint8, sizeof(Angle_t));
     //Serial.printf("Angle Roll = %d\r\n", volatile_packet.Angle.Roll);
     //Serial.printf("Angle Pitch = %d\r\n", volatile_packet.Angle.Pitch);
   }
 
   if(rxMsg->id==RPM_ID)
   {
-    memcpy(&volatile_packet.rpm, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
+    memcpy(&volatile_packet.rpm, (uint16_t *)&rxMsg->data.uint8, sizeof(uint16_t));
     //Serial.printf("RPM = %d\r\n", volatile_packet.rpm);
   }
 
   if(rxMsg->id==SPEED_ID)
   {
-    memcpy(&volatile_packet.speed, (uint16_t *)rxMsg->data.uint8, sizeof(uint16_t));
+    memcpy(&volatile_packet.speed, (uint16_t *)&rxMsg->data.uint8, sizeof(uint16_t));
     //Serial.printf("Speed = %d\r\n", volatile_packet.speed);
   }
 
   if(rxMsg->id==TEMPERATURE_ID)
   {
-    memcpy(&volatile_packet.temperature, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    memcpy(&volatile_packet.temperature, (uint8_t *)&rxMsg->data.uint8, sizeof(uint8_t));
     //Serial.printf("Motor = %d\r\n", volatile_packet.temperature);
   }
 
   if(rxMsg->id==FLAGS_ID)
   {
-    memcpy(&volatile_packet.flags, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    memcpy(&volatile_packet.flags, (uint8_t *)&rxMsg->data.uint8, sizeof(uint8_t));
     //Serial.printf("Flags = %d\r\n", volatile_packet.flags);
   }
 
   if(rxMsg->id==SOC_ID)
   {
-    memcpy(&volatile_packet.SOC, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    memcpy(&volatile_packet.SOC, (uint8_t *)&rxMsg->data.uint8, sizeof(uint8_t));
     //Serial.printf("SOC = %d\r\n", volatile_packet.SOC);
   }
 
   if(rxMsg->id==CVT_ID)
   {
-    memcpy(&volatile_packet.cvt, (uint8_t *)rxMsg->data.uint8, sizeof(uint8_t));
+    memcpy(&volatile_packet.cvt, (uint8_t *)&rxMsg->data.uint8, sizeof(uint8_t));
     //Serial.printf("CVT = %d\r\n", volatile_packet.cvt);
   }
 
   if(rxMsg->id==VOLTAGE_ID)
   {
-    memcpy(&volatile_packet.volt, (float *)rxMsg->data.uint8, sizeof(float));
+    memcpy(&volatile_packet.volt, (float *)&rxMsg->data.uint8, sizeof(float));
     //Serial.printf("Volt = %f\r\n", volatile_packet.volt);
   }
 
   if(rxMsg->id==CURRENT_ID)
   {
-    memcpy(&volatile_packet.current, (float *)rxMsg->data.uint8, sizeof(float));
+    memcpy(&volatile_packet.current, (float *)&rxMsg->data.uint8, sizeof(float));
     //Serial.printf("Current = %f\r\n", volatile_packet.current);
   }
 
   if(rxMsg->id==LAT_ID)
   {
-    memcpy(&volatile_packet.latitude, (double *)rxMsg->data.uint8, sizeof(double));
+    memcpy(&volatile_packet.latitude, (double *)&rxMsg->data.uint8, sizeof(double));
     //Serial.printf("Latitude (LAT) = %lf\r\n", volatile_packet.latitude);
   }  
 
   if(rxMsg->id==LNG_ID)
   {
-    memcpy(&volatile_packet.longitude, (double *)rxMsg->data.uint8, sizeof(double));
+    memcpy(&volatile_packet.longitude, (double *)&rxMsg->data.uint8, sizeof(double));
     //Serial.printf("Longitude (LNG) = %lf\r\n", volatile_packet.longitude);
   }
 }
