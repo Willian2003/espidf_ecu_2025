@@ -2,9 +2,10 @@
 #define SOFTWARE_DEFINITIONS_H
 
 #include <Arduino.h>
-#include "packets.h"
-#include "can_defs.h"
-#include "gprs_defs.h"
+#include "BajaDefs/hardware_defs.h"
+#include "BajaDefs/packets.h"
+#include "BajaDefs/gprs_defs.h"
+#include "BajaDefs/can_defs.h"
 
 /* State Machines */
 typedef enum {

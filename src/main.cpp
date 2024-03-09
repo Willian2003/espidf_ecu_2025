@@ -1,14 +1,10 @@
 #include <Arduino.h>
 /* ESP Tools Libraries */
-#include <Ticker.h>
 #include <SD.h>
-#include "esp32_can.h"
-/* Communication Libraries */
-#include "can_defs.h"
-#include "gprs_defs.h"
+#include <Ticker.h>
+#include <CANmsg.h>
 /* User Libraries */
 #include "middle_defs.h"
-#include "hardware_defs.h"
 
 #define MB1 // Uncomment a line if it is your car choice
 //#define MB2 // Uncomment a line if it is your car choice
@@ -50,7 +46,7 @@
 #endif
 
 /* ESP Tools */
-CAN_FRAME txMsg;
+CANmsg txMsg(CAN_RX_id, CAN_TX_id, CAN_BPS_1000K);
 Ticker TimeOutSOT; 
 Ticker ticker40Hz;
 Ticker ticker1Hz;
@@ -119,13 +115,7 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS initialize */
-  CAN.setCANPins((gpio_num_t)CAN_RX_id, (gpio_num_t)CAN_TX_id);
-  CAN.begin(CAN_BPS_1000K);
-  CAN.watchFor();
-  CAN.setCallback(0, canISR);
-  txMsg.length = 8;
-  txMsg.extended = 0; txMsg.rtr = 0;
-  txMsg.id = SOT_ID; 
+  txMsg.init(canISR);
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
@@ -614,8 +604,9 @@ void canISR(CAN_FRAME *rxMsg)
 void debouceHandlerSOT()
 {
   /* Sent State of Telemetry (SOT) */
-  txMsg.data.uint8[0] = SOT;
-  CAN.sendFrame(txMsg); 
+  txMsg.clear(SOT_ID);
+  txMsg << SOT;
+  txMsg.write();
 }
 
 void ticker40HzISR()
