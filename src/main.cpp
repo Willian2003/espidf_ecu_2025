@@ -2,7 +2,7 @@
 /* ESP Tools Libraries */
 #include <SD.h>
 #include <Ticker.h>
-#include <CANmsg.h>
+#include "CANmsg.h"
 /* User Libraries */
 #include "middle_defs.h"
 
@@ -115,7 +115,14 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS initialize */
+  txMsg.Set_Debug_Mode(false);
   txMsg.init(canISR);
+  /* if you needed apply a Mask and id to filtering write this:
+    * txMsg.init(canISR, ID); or txMsg.init(canISR, ID, Mask);
+      * if you ID is bigger then 0x7FF the extended mode is activated
+    * you can set the filter in this function too:
+    * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended); 
+  */ 
 
   setupVolatilePacket(); // volatile packet default values
   taskSetup();           // Tasks
@@ -607,6 +614,13 @@ void debouceHandlerSOT()
   txMsg.clear(SOT_ID);
   txMsg << SOT;
   txMsg.write();
+
+  /*
+    * If you send a buffer message you can use this function:
+    * SendMsgBuffer(uint32_t Id, bool ext, uint8_t length, unsigned char* data);
+    * or you use this:
+    * txMsg << data1 << data2 << data3 ...; 
+  */
 }
 
 void ticker40HzISR()
