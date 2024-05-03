@@ -34,7 +34,7 @@ void setup()
   // This state machine is responsible for the GPRS connection          
 }
 
-void loop() {/**/} 
+void loop() {/*volatile_packet = update_packet();*/} 
 
 /* SD State Machine */
 void SdStateMachine(void* pvParameters)
@@ -61,15 +61,17 @@ void ConnStateMachine(void* pvParameters)
   if((_sot & 0x04)==ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg(txMsg, _sot);
-    delay((_sot==5 ? DELAY_ERROR : DELAY_ERROR/10));
+    delay((_sot==0x05 ? DELAY_ERROR : DELAY_ERROR/10));
     esp_restart();
   } 
+
+  if(_sot==CONNECTED) Send_SOT_msg(txMsg, _sot);
 
   while(1)
   {
     if(!Check_mqtt_client_conection())
     {
-      _sot==0x01 ? _sot ^= (DISCONNECTED|0x01) : 0; // disable online flag 
+      _sot==CONNECTED ? _sot ^= (DISCONNECTED|0x01) : 0; // disable online flag 
       Send_SOT_msg(txMsg, _sot);
       _sot = gsmReconnect();
       //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }

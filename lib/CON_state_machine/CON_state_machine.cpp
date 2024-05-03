@@ -2,25 +2,25 @@
 
 /* GPRS credentials */
 #ifdef TIM
-  const char apn[] = "timbrasil.br";    // Your APN
-  const char gprsUser[] = "tim";        // User
-  const char gprsPass[] = "tim";        // Password
-  const char simPIN[] = "1010";         // SIM card PIN code, if any
+  WORD apn = "timbrasil.br";    // Your APN
+  WORD gprsUser = "tim";        // User
+  WORD gprsPass = "tim";        // Password
+  WORD simPIN = "1010";         // SIM card PIN code, if any
 #elif defined(CLARO)
-  const char apn[] = "claro.com.br";    // Your APN
-  const char gprsUser[] = "claro";      // User
-  const char gprsPass[] = "claro";      // Password
-  const char simPIN[] = "3636";         // SIM cad PIN code, id any
+  WORD apn = "claro.com.br";    // Your APN
+  WORD gprsUser = "claro";      // User
+  WORD gprsPass = "claro";      // Password
+  WORD simPIN = "3636";         // SIM cad PIN code, id any
 #elif defined(VIVO)
-  const char apn[] = "zap.vivo.com.br";  // Your APN
-  const char gprsUser[] = "vivo";        // User
-  const char gprsPass[] = "vivo";        // Password
-  const char simPIN[] = "8486";          // SIM cad PIN code, id any
+  WORD apn = "zap.vivo.com.br";  // Your APN
+  WORD gprsUser = "vivo";        // User
+  WORD gprsPass = "vivo";        // Password
+  WORD simPIN = "8486";          // SIM cad PIN code, id any
 #else
-  const char apn[] = "timbrasil.br";    // Your APN
-  const char gprsUser[] = "tim";        // User
-  const char gprsPass[] = "tim";        // Password
-  const char simPIN[] = "1010";         // SIM card PIN code, if any
+  WORD apn = "timbrasil.br";    // Your APN
+  WORD gprsUser = "tim";        // User
+  WORD gprsPass = "tim";        // Password
+  WORD simPIN = "1010";         // SIM card PIN code, if any
 #endif
 //unsigned long timer;
 // Flags to ticker function 

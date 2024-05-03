@@ -1,6 +1,8 @@
 #ifndef GPRS_DEFS_H
 #define GPRS_DEFS_H
 
+#include <HardwareSerial.h>
+
 #define DELAY_ERROR 10000
 #define SerialAT    Serial2 // Set serial for AT commands (to the module)
 #define PORT        1883
