@@ -25,7 +25,7 @@ void setup()
   /* CAN-BUS Initialize */
   CAN_setup(txMsg, canISR);
 
-  setupVolatilePacket(volatile_packet); // volatile packet default values
+  volatile_packet = setupVolatilePacket(); // volatile packet default values
   
   /* Tasks */
   xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 4096, NULL, 5, &SDlogging, 0);
@@ -55,13 +55,13 @@ void SdStateMachine(void* pvParameters)
 }
 
 /* Connectivity State Machine */
-void ConnStateMachine(void *pvParameters)
+void ConnStateMachine(void* pvParameters)
 {
   _sot = Initialize_GSM(); 
-  if(_sot==ERROR_CONECTION)
+  if((_sot & 0x04)==ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg(txMsg, _sot);
-    delay(1000);
+    delay((_sot==5 ? DELAY_ERROR : DELAY_ERROR/10));
     esp_restart();
   } 
 
@@ -72,7 +72,7 @@ void ConnStateMachine(void *pvParameters)
       _sot==0x01 ? _sot ^= (DISCONNECTED|0x01) : 0; // disable online flag 
       Send_SOT_msg(txMsg, _sot);
       _sot = gsmReconnect();
-      while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
+      //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
       Send_SOT_msg(txMsg, _sot); 
     }
 

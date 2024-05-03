@@ -31,18 +31,19 @@ bool buff = false;
 uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 int volatile_position = 0;
 
-const char* server = "64.227.19.172";
+WORD server = "64.227.19.172";
 char payload_char[MSG_BUFFER_SIZE];
 char msg[MSG_BUFFER_SIZE];
 // ESP hotspot definitions
-const char* host = "esp32";                   // Here's your "host device name"
-const char* ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
-const char* ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
+WORD host = "esp32";                   // Here's your "host device name"
+WORD ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
+WORD ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 /* GSM definitions */
 #include <TinyGSM.h>
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
+
 TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqttClient(client);
@@ -68,7 +69,7 @@ uint8_t Initialize_GSM()
   if(!modem.waitForNetwork(128000L))
   {
     Serial.println("fail");
-    return (uint8_t)ERROR_CONECTION;
+    return (uint8_t)(ERROR_CONECTION|1);
   }
   Serial.println("OK");
 
@@ -82,7 +83,7 @@ uint8_t Initialize_GSM()
   if(!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
     Serial.println(" fail");
-    return (uint8_t)ERROR_CONECTION;
+    return (uint8_t)(ERROR_CONECTION|1);
   }
   Serial.println(" OK");
 
@@ -132,6 +133,7 @@ boolean Check_mqtt_client_conection()
 
 uint8_t gsmReconnect()
 {
+  connectivity_states current_St = DISCONNECTED;
   int count = 0;
   Serial.println("Conecting to MQTT Broker...");
   while(!mqttClient.connected() && count < 3)
@@ -148,21 +150,22 @@ uint8_t gsmReconnect()
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
       
-      return (uint8_t)CONNECTED; // enable online flag 
+      current_St = CONNECTED; // enable online flag
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
       //digitalWrite(LED_BUILTIN, HIGH);
+
     } else {
       Serial.print("Failed with state");
       Serial.println(mqttClient.state());
       
       delay(2000); 
-      return (uint8_t)DISCONNECTED;
-       // disable online flag 
+      current_St = DISCONNECTED; // disable online flag 
     }
   }
-  return (uint8_t)CONNECTED;
+
+  return (uint8_t)current_St;
 }
 
 void Send_msg_MQTT(mqtt_packet_t msg_packet)
@@ -202,7 +205,6 @@ void publishPacket(void* T, uint32_t len)
     sendFlag = false; 
   }
 }
-
 
 /* Ticker functions */
 Ticker ticker1Hz,

@@ -17,10 +17,13 @@
 
 /* State Machines */
 typedef enum {
-    CONNECTED       = 0X01, 
-    DISCONNECTED    = 0X00, 
-    ERROR_CONECTION = 0x04
+    DISCONNECTED    = (0 << 1), 
+    CONNECTED       = (1 << 0), 
+    RESERVED_ID_4x4 = (1 << 1), // this ID is set in front ECU
+    ERROR_CONECTION = (1 << 2)
 } connectivity_states;
+
+typedef const char* WORD;
 
 uint8_t Initialize_GSM(void);
 void gsmCallback(char* topic, byte* payload, unsigned int length);

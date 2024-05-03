@@ -23,9 +23,11 @@ void pinConfig()
   return;
 }
 
-void setupVolatilePacket(mqtt_packet_t t)
-{
+void setupVolatilePacket()
+{ 
+  mqtt_packet_t t;
   memset(&t, 0x00, sizeof(mqtt_packet_t));
+  return t;
 }
 
 bool start_SD_device()
@@ -183,8 +185,11 @@ String packetToString(bool err)
 void Check_SD_for_storage(mqtt_packet_t packet)
 {
   storage_data = packet;
-  sdSave(false);
-  saveFlag = false;
+  if(saveFlag)
+  {
+    sdSave(false);
+    saveFlag = false;    
+  }
 }
 
 /* Ticker routine */
