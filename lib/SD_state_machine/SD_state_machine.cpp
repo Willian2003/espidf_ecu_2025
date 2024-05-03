@@ -23,7 +23,7 @@ void pinConfig()
   return;
 }
 
-void setupVolatilePacket()
+mqtt_packet_t setupVolatilePacket()
 { 
   mqtt_packet_t t;
   memset(&t, 0x00, sizeof(mqtt_packet_t));

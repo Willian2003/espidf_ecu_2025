@@ -9,7 +9,7 @@
 #include "packets.h" 
 
 void pinConfig(void); // Hardware and Interrupt Config
-void setupVolatilePacket(); // volatile packet default values
+mqtt_packet_t setupVolatilePacket(); // volatile packet default values
 
 /* SD definitions */
 bool start_SD_device(void);
