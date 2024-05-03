@@ -1,6 +1,8 @@
 #include <Arduino.h>
 /* CAN Libraries */
 #include "CAN_receiver.h"
+/* OTA functions Librarie */
+#include <ota.h>
 /* Libraries of SD and Conectivity state Machine */
 #include <SD_state_machine.h>
 #include <CON_state_machine.h>
