@@ -1,0 +1,3 @@
+[submodule "include/CANmsg"]
+	path = include/CANmsg
+	url = https://github.com/joaogabrielsantosD/CANmsg.git

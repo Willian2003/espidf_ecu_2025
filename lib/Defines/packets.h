@@ -51,7 +51,4 @@ typedef struct
 
 } mqtt_packet_t;
 
-// Packet constantly saved
-mqtt_packet_t volatile_packet;
-
 #endif
