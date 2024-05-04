@@ -4,16 +4,21 @@ bool mode = false;
 mqtt_packet_t can_receive_packet = setupVolatilePacket();
 CANmsg txMsg(CAN_RX_id, CAN_TX_id, CAN_BPS_1000K);
 
-void CAN_start_device()
+bool CAN_start_device()
 {
-    txMsg.Set_Debug_Mode(false);
-    txMsg.init(canISR);
-    /* if you needed apply a Mask and id to filtering write this:
-    * txMsg.init(canISR, ID); or txMsg.init(canISR, ID, Mask);
+  txMsg.Set_Debug_Mode(false);
+  if(!txMsg.init(canISR))
+  {
+    log_e("CAN ERROR!! SYSTEM WILL RESTART IN 2 SECONDS...");
+    vTaskDelay(2000);
+    return false;
+  }
+  /* if you needed apply a Mask and id to filtering write this:
+   * txMsg.init(canISR, ID); or txMsg.init(canISR, ID, Mask);
       * if you ID is bigger then 0x7FF the extended mode is activated
-    * you can set the filter in this function too:
-    * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended); 
-    */ 
+   * you can set the filter in this function too:
+   * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended);  */ 
+  return true;
 }
 
 mqtt_packet_t setupVolatilePacket()

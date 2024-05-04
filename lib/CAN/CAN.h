@@ -7,7 +7,7 @@
 #include "hardware_defs.h"
 #include "packets.h"
 
-void CAN_start_device(void);
+bool CAN_start_device(void);
 mqtt_packet_t setupVolatilePacket(void); // volatile packet default values
 void Send_SOT_msg(uint8_t _msg);
 mqtt_packet_t update_packet(void);

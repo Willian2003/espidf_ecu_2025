@@ -23,7 +23,7 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS Initialize */
-  CAN_start_device();
+  if(!CAN_start_device()) esp_restart();
   
   /* Tasks */
   xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 4096, NULL, 5, &SDlogging, 0);

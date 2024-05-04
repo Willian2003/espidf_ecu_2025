@@ -5,8 +5,9 @@ CAN_FRAME Tx_Rx_message;
 
 CANmsg::CANmsg(gpio_num_t rx_id, gpio_num_t tx_id, uint32_t Baudrate) : msg(Tx_Rx_message)
 {
-    CAN.setCANPins(rx_id, tx_id);
-    CAN.begin(Baudrate);
+    __rx_id = rx_id;
+    __tx_id = tx_id;
+    _baudrate = Baudrate;
 };
 
 CANmsg::~CANmsg()
@@ -19,32 +20,40 @@ CANmsg::~CANmsg()
     }
 };
 
-void CANmsg::init(callback isr)
+bool CANmsg::init(callback isr)
 {
-    this->init(isr, 0, 0);
+    return this->init(isr, 0, 0);
 }
 
-void CANmsg::init(callback isr, uint32_t Id)
+bool CANmsg::init(callback isr, uint32_t Id)
 {
-    this->init(isr, Id, 0);
+    return this->init(isr, Id, 0);
 } 
 
-void CANmsg::init(callback isr, uint32_t Id, uint32_t Mask)
+bool CANmsg::init(callback isr, uint32_t Id, uint32_t Mask)
 {
-    f = true;
+    bool can_flag_init = false;
+    CAN.setCANPins(__rx_id, __tx_id);
 
-    if(Id==0 && Mask==0)
-        CAN.watchFor();
-    if(Id!=0 && Mask==0)
-        CAN.watchFor(Id);
-    if(Id!=0 && Mask!=0)
-        CAN.watchFor(Id, Mask);
-    else 
-        CAN.watchFor();
+    if(CAN.begin(_baudrate))
+    {
+        can_flag_init = true;
+        f = true;
 
-    CAN.setCallback(0, isr);
-    if(Id != 0)  _ext = Id > 0x7FF ? 1 : 0;
-    this->setup();
+        if(Id==0 && Mask==0)
+            CAN.watchFor();
+        if(Id!=0 && Mask==0)
+            CAN.watchFor(Id);
+        if(Id!=0 && Mask!=0)
+            CAN.watchFor(Id, Mask);
+        else 
+            CAN.watchFor();
+
+        CAN.setCallback(0, isr);
+        if(Id != 0)  _ext = Id > 0x7FF ? 1 : 0;
+        this->setup();
+    }
+    return can_flag_init;
 } 
 
 void CANmsg::setup()

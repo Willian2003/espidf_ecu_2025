@@ -14,6 +14,9 @@ class CANmsg
     private:
         uint8_t _ext = 0;
     protected:
+        gpio_num_t __rx_id;
+        gpio_num_t __tx_id;
+        uint32_t _baudrate;
         CAN_FRAME msg;
         int len = 0;
         bool f = false;
@@ -24,11 +27,11 @@ class CANmsg
 
         ~CANmsg(); 
 
-        void init(callback isr); 
+        bool init(callback isr); 
 
-        void init(callback isr, uint32_t Id);
+        bool init(callback isr, uint32_t Id);
 
-        void init(callback isr, uint32_t Id, uint32_t Mask);
+        bool init(callback isr, uint32_t Id, uint32_t Mask);
 
         int Set_Filter(uint32_t Id, uint32_t Mask, bool Extended);
 
