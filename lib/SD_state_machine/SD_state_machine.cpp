@@ -182,9 +182,9 @@ String packetToString(bool err)
   return dataString;
 }
 
-void Check_SD_for_storage()
+void Check_SD_for_storage(mqtt_packet_t rev)
 {
-  storage_data = update_packet();
+  storage_data = rev;
   if(saveFlag)
   {
     sdSave(false);
