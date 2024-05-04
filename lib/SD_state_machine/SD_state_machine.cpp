@@ -23,13 +23,6 @@ void pinConfig()
   return;
 }
 
-mqtt_packet_t setupVolatilePacket()
-{ 
-  mqtt_packet_t t;
-  memset(&t, 0x00, sizeof(mqtt_packet_t));
-  return t;
-}
-
 bool start_SD_device()
 {
   do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
@@ -89,6 +82,7 @@ void sdSave(bool set)
 
 String packetToString(bool err)
 {
+  SD_data = update_packet();
   String dataString = "";
     if(err)
     {
@@ -182,9 +176,8 @@ String packetToString(bool err)
   return dataString;
 }
 
-void Check_SD_for_storage(mqtt_packet_t data)
+void Check_SD_for_storage()
 {
-  SD_data = data;
   if(saveFlag)
   {
     sdSave(false);

@@ -6,6 +6,7 @@
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
 #include <Ticker.h>
+#include "CAN.h"
 #include "gprs_defs.h"
 #include "hardware_defs.h"
 #include "packets.h" 
@@ -29,7 +30,7 @@ uint8_t Initialize_GSM(void);
 void gsmCallback(char* topic, byte* payload, unsigned int length);
 boolean Check_mqtt_client_conection(void);
 void gsmReconnect(uint8_t& _try_reconect);
-void Send_msg_MQTT(mqtt_packet_t recv);
+void Send_msg_MQTT(void);
 void publishPacket(void* T, uint32_t len);
 
 /* Ticker functions */
