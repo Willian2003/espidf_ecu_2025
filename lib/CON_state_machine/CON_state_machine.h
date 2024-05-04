@@ -28,7 +28,7 @@ typedef const char* WORD;
 uint8_t Initialize_GSM(void);
 void gsmCallback(char* topic, byte* payload, unsigned int length);
 boolean Check_mqtt_client_conection(void);
-uint8_t gsmReconnect(void);
+void gsmReconnect(uint8_t& _try_reconect);
 void Send_msg_MQTT(mqtt_packet_t recv);
 void publishPacket(void* T, uint32_t len);
 

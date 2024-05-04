@@ -131,9 +131,8 @@ boolean Check_mqtt_client_conection()
   return mqttClient.connected();
 }
 
-uint8_t gsmReconnect()
+void gsmReconnect(uint8_t& _try_reconect)
 {
-  connectivity_states current_St = DISCONNECTED;
   int count = 0;
   Serial.println("Conecting to MQTT Broker...");
   while(!mqttClient.connected() && count < 3)
@@ -150,7 +149,7 @@ uint8_t gsmReconnect()
       memset(msg, 0, sizeof(msg));
       Serial.println("Connected.");
       
-      current_St = CONNECTED; // enable online flag
+      _try_reconect = CONNECTED; // enable online flag
 
       /* Subscribe to topics */
       mqttClient.subscribe("/esp-test");
@@ -161,11 +160,9 @@ uint8_t gsmReconnect()
       Serial.println(mqttClient.state());
       
       delay(2000); 
-      current_St = DISCONNECTED; // disable online flag 
+      _try_reconect = DISCONNECTED; // disable online flag 
     }
   }
-
-  return (uint8_t)current_St;
 }
 
 void Send_msg_MQTT(mqtt_packet_t recv)

@@ -50,14 +50,14 @@ void loop() {/*volatile_packet = update_packet();*/}
 /* SD State Machine */
 void SdStateMachine(void* pvParameters)
 {
-  _sd = start_SD_device();
+  _sd = start_SD_device(&volatile_packet);
 
   /* For synchronization between ECU and panel */
   Send_SOT_msg();
 
   while(1)
   {
-    if(_sd) Check_SD_for_storage(volatile_packet);
+    if(_sd) Check_SD_for_storage();
 
     vTaskDelay(1);
   }
@@ -70,10 +70,9 @@ void ConnStateMachine(void* pvParameters)
   if((_sot & 0x04)==ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg();
-    delay((_sot==0x05 ? DELAY_ERROR : DELAY_ERROR/10));
+    delay(DELAY_ERROR(_sot));
     esp_restart();
   } 
-
   Send_SOT_msg();
 
   while(1)
@@ -82,11 +81,10 @@ void ConnStateMachine(void* pvParameters)
     {
       _sot==CONNECTED ? _sot ^= (DISCONNECTED|0x01) : 0; // disable online flag 
       Send_SOT_msg();
-      _sot = gsmReconnect();
+      gsmReconnect(_sot);
       //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
       Send_SOT_msg(); 
     }
-
     Send_msg_MQTT(volatile_packet);
 
     vTaskDelay(1);
@@ -96,8 +94,7 @@ void ConnStateMachine(void* pvParameters)
 /* CAN functions */
 void canISR(CAN_FRAME* rxMsg)
 { 
-  mode = !mode;
-  digitalWrite(EMBEDDED_LED, mode);
+  mode = !mode; digitalWrite(EMBEDDED_LED, mode);
 
   volatile_packet.timestamp = millis();
 

@@ -3,9 +3,9 @@
 
 #include <HardwareSerial.h>
 
-#define DELAY_ERROR 10000
-#define SerialAT    Serial2 // Set serial for AT commands (to the module)
-#define PORT        1883
+#define DELAY_ERROR(p)  ((p==0x05)?(10000):1000)
+#define SerialAT        Serial2 // Set serial for AT commands (to the module)
+#define PORT            1883
 
 /* Configure TinyGSM library */
 #define TINY_GSM_MODEM_SIM800    // Modem is SIM800
