@@ -7,7 +7,6 @@ char file_name[20];
 File root; 
 File dataFile;
 /* Debug Variables */
-mqtt_packet_t SD_data = setupVolatilePacket();
 boolean savingBlink = false;
 boolean saveFlag = false;
 
@@ -27,8 +26,14 @@ bool start_SD_device()
 {
   do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
 
-  if(!mounted) Serial.println("SD mounted error!!"); 
-  else sdSave(true);
+  if(!mounted)
+  {
+    Serial.println("SD mounted error!!");
+    return false;
+  } else {
+    sdSave(true);
+    setup_SD_ticker();
+  }
 
   return mounted;
 }
@@ -82,7 +87,8 @@ void sdSave(bool set)
 
 String packetToString(bool err)
 {
-  SD_data = update_packet();
+  mqtt_packet_t SD_data = update_packet();
+  
   String dataString = "";
     if(err)
     {
@@ -178,7 +184,7 @@ String packetToString(bool err)
 
 void Check_SD_for_storage()
 {
-  if(saveFlag)
+  if(saveFlag && mounted)
   {
     sdSave(false);
     saveFlag = false;    

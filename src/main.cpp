@@ -44,9 +44,9 @@ void SdStateMachine(void* pvParameters)
 
   while(1)
   {
-    if(_sd) Check_SD_for_storage();
+    Check_SD_for_storage();
 
-    vTaskDelay(1);
+    vTaskDelay((_sd ? 1 : 100));
   }
 }
 
