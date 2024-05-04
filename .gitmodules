@@ -1,3 +1,0 @@
-[submodule "lib/CAN_receiver/src/CANmsg"]
-	path = lib/CAN_receiver/src/CANmsg
-	url = https://github.com/joaogabrielsantosD/CANmsg.git

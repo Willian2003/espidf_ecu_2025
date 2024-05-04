@@ -168,8 +168,9 @@ uint8_t gsmReconnect()
   return (uint8_t)current_St;
 }
 
-void Send_msg_MQTT(mqtt_packet_t msg_packet)
+void Send_msg_MQTT()
 {
+  mqtt_packet_t msg_packet = update_packet();
   publishPacket(&msg_packet, sizeof(msg_packet));
   mqttClient.loop();
 }

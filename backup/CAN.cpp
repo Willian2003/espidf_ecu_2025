@@ -1,26 +1,13 @@
-#ifndef CAN_RECEIVER_H
-#define CAN_RECEIVER_H
+#include "CAN.h"
 
-#include <Arduino.h>
-#include "CANmsg/CANmsg.h"
-#include <hardware_defs.h>
-#include <can_defs.h>
-#include <packets.h>
-
+CANmsg txMsg(CAN_RX_id, CAN_TX_id, CAN_BPS_1000K);
+mqtt_packet_t receive_packet = setupVolatilePacket();
 bool mode = false;
-mqtt_packet_t receive_packet;
 
-void CAN_setup(CANmsg class_obj, callback funtion_interrupt)
+void CAN_setup()
 {
-  /* CAN-BUS initialize */
-  class_obj.Set_Debug_Mode(false);
-  class_obj.init(funtion_interrupt);
-  /* if you needed apply a Mask and id to filtering write this:
-    * txMsg.init(canISR, ID); or txMsg.init(canISR, ID, Mask);
-      * if you ID is bigger then 0x7FF the extended mode is activated
-    * you can set the filter in this function too:
-    * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended); 
-  */ 
+    txMsg.Set_Debug_Mode(false);
+    txMsg.init(canISR);
 }
 
 /* Interrupts routine */
@@ -115,13 +102,13 @@ void canISR(CAN_FRAME* rxMsg)
   }
 }
 
-void Send_SOT_msg(CANmsg class_obj, uint8_t _msg)
+void Send_SOT_msg(uint8_t _msg)
 {
-  delay(1);
+  vTaskDelay(1);
   /* Sent State of Telemetry (SOT) */
-  class_obj.clear(SOT_ID);
-  class_obj << _msg;
-  class_obj.write();
+  txMsg.clear(SOT_ID);
+  txMsg << _msg;
+  txMsg.write();
 
   /*
   * If you send a buffer message you can use this function:
@@ -129,11 +116,9 @@ void Send_SOT_msg(CANmsg class_obj, uint8_t _msg)
   * or you use this:
   * class_obj << data1 << data2 << data3 ...; 
   */
-};
+}
 
 mqtt_packet_t update_packet(void)
 {
   return receive_packet;
 }
-
-#endif
