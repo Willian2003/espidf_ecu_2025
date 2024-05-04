@@ -12,12 +12,12 @@ void pinConfig(void); // Hardware and Interrupt Config
 mqtt_packet_t setupVolatilePacket(void); // volatile packet default values
 
 /* SD definitions */
-bool start_SD_device(mqtt_packet_t* data);
+bool start_SD_device(void);
 bool sdConfig(void);
 int countFiles(File dir);
 void sdSave(bool set); 
 String packetToString(bool err);
-void Check_SD_for_storage(void);
+void Check_SD_for_storage(mqtt_packet_t data);
 
 /* Ticker definitions */
 void setup_SD_ticker(void);

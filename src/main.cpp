@@ -50,14 +50,14 @@ void loop() {/*volatile_packet = update_packet();*/}
 /* SD State Machine */
 void SdStateMachine(void* pvParameters)
 {
-  _sd = start_SD_device(&volatile_packet);
+  _sd = start_SD_device();
 
   /* For synchronization between ECU and panel */
   Send_SOT_msg();
 
   while(1)
   {
-    if(_sd) Check_SD_for_storage();
+    if(_sd) Check_SD_for_storage(volatile_packet);
 
     vTaskDelay(1);
   }

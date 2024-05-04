@@ -7,7 +7,7 @@ char file_name[20];
 File root; 
 File dataFile;
 /* Debug Variables */
-mqtt_packet_t* SD_data;
+mqtt_packet_t SD_data = setupVolatilePacket();
 boolean savingBlink = false;
 boolean saveFlag = false;
 
@@ -30,9 +30,8 @@ mqtt_packet_t setupVolatilePacket()
   return t;
 }
 
-bool start_SD_device(mqtt_packet_t* data)
+bool start_SD_device()
 {
-  SD_data = data;
   do { Serial.println("Mount SD..."); } while(!sdConfig() && millis() < timeoutTime);
 
   if(!mounted) Serial.println("SD mounted error!!"); 
@@ -90,7 +89,6 @@ void sdSave(bool set)
 
 String packetToString(bool err)
 {
-  mqtt_packet_t storage_data = *SD_data;
   String dataString = "";
     if(err)
     {
@@ -139,53 +137,54 @@ String packetToString(bool err)
     else
     {
       // imu
-      dataString += String((storage_data.imu_acc.acc_x*0.061)/1000);
+      dataString += String((SD_data.imu_acc.acc_x*0.061)/1000);
       dataString += ",";
-      dataString += String((storage_data.imu_acc.acc_y*0.061)/1000);
+      dataString += String((SD_data.imu_acc.acc_y*0.061)/1000);
       dataString += ",";
-      dataString += String((storage_data.imu_acc.acc_z*0.061)/1000);
+      dataString += String((SD_data.imu_acc.acc_z*0.061)/1000);
       dataString += ",";
-      dataString += String(storage_data.imu_dps.dps_x);
+      dataString += String(SD_data.imu_dps.dps_x);
       dataString += ",";
-      dataString += String(storage_data.imu_dps.dps_y);
+      dataString += String(SD_data.imu_dps.dps_y);
       dataString += ",";
-      dataString += String(storage_data.imu_dps.dps_z);
+      dataString += String(SD_data.imu_dps.dps_z);
       dataString += ",";
-      dataString += String(storage_data.Angle.Roll);
+      dataString += String(SD_data.Angle.Roll);
       dataString += ",";
-      dataString += String(storage_data.Angle.Pitch);
+      dataString += String(SD_data.Angle.Pitch);
 
       dataString += ",";
-      dataString += String(storage_data.rpm);
+      dataString += String(SD_data.rpm);
       dataString += ",";
-      dataString += String(storage_data.speed);
+      dataString += String(SD_data.speed);
       dataString += ",";
-      dataString += String(storage_data.temperature);
+      dataString += String(SD_data.temperature);
       dataString += ",";
-      dataString += String(storage_data.SOC);
+      dataString += String(SD_data.SOC);
       dataString += ",";
-      dataString += String(storage_data.cvt);
+      dataString += String(SD_data.cvt);
       dataString += ",";
-      //dataString += String(storage_data.fuel);
+      //dataString += String(SD_data.fuel);
       //dataString += ",";
-      dataString += String(storage_data.volt);
+      dataString += String(SD_data.volt);
       dataString += ",";
-      dataString += String(storage_data.current);
+      dataString += String(SD_data.current);
       dataString += ",";
-      dataString += String(storage_data.flags);
+      dataString += String(SD_data.flags);
       dataString += ",";
-      dataString += String(storage_data.latitude);
+      dataString += String(SD_data.latitude);
       dataString += ",";
-      dataString += String(storage_data.longitude);
+      dataString += String(SD_data.longitude);
       dataString += ",";
-      dataString += String(storage_data.timestamp);
+      dataString += String(SD_data.timestamp);
     }
 
   return dataString;
 }
 
-void Check_SD_for_storage()
+void Check_SD_for_storage(mqtt_packet_t data)
 {
+  SD_data = data;
   if(saveFlag)
   {
     sdSave(false);
