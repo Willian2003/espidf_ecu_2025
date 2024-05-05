@@ -25,7 +25,12 @@
         "esp_intr.h": "c",
         "esp_intr_alloc.h": "c",
         "hardware.h": "c",
-        "gprs.h": "c"
+        "gprs.h": "c",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "system_error": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
