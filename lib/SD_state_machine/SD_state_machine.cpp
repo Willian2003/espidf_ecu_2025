@@ -75,7 +75,7 @@ void sdSave(bool set)
 
   if(dataFile)
   {
-    dataFile.println(set);
+    dataFile.println(packetToString(set));
     dataFile.close();
     savingBlink = !savingBlink;
     digitalWrite(DEBUG_LED, savingBlink);
