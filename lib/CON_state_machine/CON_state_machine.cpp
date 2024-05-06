@@ -31,7 +31,7 @@ bool buff = false;
 uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 int volatile_position = 0;
 
-WORD server = "64.227.19.172";
+WORD node_server = "64.227.19.172";
 char payload_char[MSG_BUFFER_SIZE];
 char msg[MSG_BUFFER_SIZE];
 // ESP hotspot definitions
@@ -99,14 +99,15 @@ uint8_t Initialize_GSM()
   }
   Serial.println("mDNS configured;");
 
-  mqttClient.setServer(server, PORT);
-  mqttClient.setCallback(gsmCallback);
+  mqttClient.setServer(node_server, PORT);
+  //mqttClient.setCallback(gsmCallback);
   mqttClient.setBufferSize(MAX_GPRS_BUFFER-1);
 
   Serial.println("Ready");
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
   setup_GSM_tic();
+  setup_wifi_callback_OTA(String(WiFi.localIP()));
   return (uint8_t)CONNECTED;
 }
 
