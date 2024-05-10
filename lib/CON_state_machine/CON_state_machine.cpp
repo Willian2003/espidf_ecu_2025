@@ -90,6 +90,7 @@ uint8_t Initialize_GSM()
   // Wi-Fi Config and Debug
   WiFi.mode(WIFI_MODE_AP);
   WiFi.softAP(ESP_ssid, ESP_password);
+  WiFi.begin(ESP_ssid, ESP_password);
 
   if(!MDNS.begin(host)) // Use MDNS to solve DNS
   {

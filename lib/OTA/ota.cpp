@@ -1,6 +1,5 @@
 #include "ota.h"
 
-boolean device = false;
 String esp32_local_ip = "";
 WebServer server(80);
 WiFiManager wifiManager; // Objeto de manipulação do wi-fi
@@ -9,8 +8,8 @@ void setup_wifi_callback_OTA(String __IP)
 {
   esp32_local_ip = __IP;
   // callback para quando entra em modo de configuração AP
-  wifiManager.setAPCallback(configModeCallback);
-  
+  //wifiManager.setAPCallback(configModeCallback);
+
   // callback para quando se conecta em uma rede, ou seja, quando passa a trabalhar em modo estação
   // wifiManager.setSaveConfigCallback(saveConfigCallback);
 
@@ -19,7 +18,6 @@ void setup_wifi_callback_OTA(String __IP)
 
 void configModeCallback(WiFiManager *ConectedDevice)
 {
-  device = true;
   Serial.println("Entrou no modo de configuração");
   Serial.println(esp32_local_ip);
   Serial.println(ConectedDevice->getConfigPortalSSID()); // imprime o SSID criado da rede
@@ -120,7 +118,7 @@ void start_server()
   server.on("/", HTTP_GET, []()
   {
     server.sendHeader("Connection", "close");
-    server.send(200, "text/html", loginIndex);
+    server.send(200, "text/html", loginIndex); 
   });
 
   server.on("/serverIndex", HTTP_GET, []()
@@ -134,7 +132,7 @@ void start_server()
   {
     server.sendHeader("Connection", "close");
     server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-    ESP.restart();
+    ESP.restart(); 
   }, []() {
     HTTPUpload& upload = server.upload();
 
@@ -161,23 +159,13 @@ void start_server()
         Serial.printf("Sucesso no update de firmware: %u\r\nReiniciando ESP32...\r\n", upload.totalSize);
       else
         Update.printError(Serial);
-    }
-  });
+    }});
 
   server.begin();
 }
 
 void HandleClient()
 {
-  Serial.printf("Device is conected? Sim[1] Nao[0]: %i\r\n", device_conected_in_esp32());
-  if(device_conected_in_esp32())
-    server.handleClient();
+  server.handleClient();
   vTaskDelay(1);
-}
-
-bool device_conected_in_esp32()
-{
-  device = WiFi.status()==WL_CONNECTED;
-
-  return device && WiFi.status()==WL_CONNECTED;
 }
