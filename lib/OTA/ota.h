@@ -12,6 +12,9 @@
 #include <Update.h>
 
 void setup_wifi_callback_OTA(String __IP);
+void start_server(void);
+void HandleClient(void);
+bool device_conected_in_esp32(void);
 
 /* Wifi callbacks */
 void configModeCallback(WiFiManager* ConectedDevice);

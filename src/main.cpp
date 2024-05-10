@@ -72,7 +72,10 @@ void ConnStateMachine(void* pvParameters)
       //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
       Send_SOT_msg(_sot); 
     }
+    /* */
     Send_msg_MQTT();
+    /**/
+    HandleClient();
 
     vTaskDelay(1);
   }
