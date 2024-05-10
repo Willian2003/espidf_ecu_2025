@@ -1,12 +1,11 @@
 #include "ota.h"
 
-String esp32_local_ip = "";
 WebServer server(80);
 WiFiManager wifiManager; // Objeto de manipulação do wi-fi
 
 void setup_wifi_callback_OTA(String __IP)
 {
-  esp32_local_ip = __IP;
+  Serial.print("Local Wifi da ESP32: "); Serial.println(__IP);
   // callback para quando entra em modo de configuração AP
   //wifiManager.setAPCallback(configModeCallback);
 
