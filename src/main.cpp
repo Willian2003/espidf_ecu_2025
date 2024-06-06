@@ -1,8 +1,6 @@
 #include <Arduino.h>
 /* CAN Libraries */
 #include <CAN.h>
-/* OTA functions Librarie */
-#include <ota.h>
 /* Libraries of SD and Conectivity state Machine */
 #include <SD_state_machine.h>
 #include <CON_state_machine.h>
@@ -72,10 +70,8 @@ void ConnStateMachine(void* pvParameters)
       //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
       Send_SOT_msg(_sot); 
     }
-    /**/
+
     Send_msg_MQTT();
-    /**/
-    HandleClient();
 
     vTaskDelay(1);
   }

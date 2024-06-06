@@ -6,7 +6,6 @@
 #include <ESPmDNS.h>
 //#include <ArduinoJson.h>
 #include <Ticker.h>
-#include <ota.h>
 #include "CAN.h"
 #include "gprs_defs.h"
 #include "hardware_defs.h"

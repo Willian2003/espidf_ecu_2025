@@ -108,7 +108,7 @@ uint8_t Initialize_GSM()
   Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
   setup_GSM_tic();
-  setup_wifi_callback_OTA(String(WiFi.localIP()));
+
   return (uint8_t)CONNECTED;
 }
 
