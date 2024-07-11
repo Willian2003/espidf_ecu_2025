@@ -5,7 +5,7 @@
 
 /* pinout definitions */
 // LEDS
-#define EMBEDDED_LED  LED_BUILTIN // Turned on on failiure
+#define EMBEDDED_LED  GPIO_NUM_2 // Turned on on failiure
 #define DEBUG_LED     GPIO_NUM_25
 
 /* SD */ 

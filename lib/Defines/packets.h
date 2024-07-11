@@ -37,15 +37,18 @@ typedef struct
     float current;
     uint8_t temperature;
     uint16_t speed;
+
     /* FRONT DATAS */
     imu_acc_t imu_acc;
     imu_dps_t imu_dps;
     Angle_t Angle;
     uint16_t rpm;
     uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
+
     /* MPU DATAS */
     double latitude;
     double longitude;
+    
     /* DEBUG DATA */
     uint32_t timestamp;
 

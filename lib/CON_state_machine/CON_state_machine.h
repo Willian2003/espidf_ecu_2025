@@ -24,17 +24,16 @@ typedef enum {
     ERROR_CONECTION = (1 << 2)
 } connectivity_states;
 
-typedef const char* WORD;
-
 uint8_t Initialize_GSM(void);
-void gsmCallback(char* topic, byte* payload, unsigned int length);
+void gsmCallback(char *topic, byte *payload, unsigned int length);
 boolean Check_mqtt_client_conection(void);
-void gsmReconnect(uint8_t& _try_reconect);
+void gsmReconnect(uint8_t &_try_reconect);
 void Send_msg_MQTT(void);
-void publishPacket(void* T, uint32_t len);
+void publishPacket(void *T, uint32_t len);
 
 /* Ticker functions */
 void setup_GSM_tic(void);
+
 /* Interrupts routine */
 void ticker1HzISR(void);
 void ticker20HzISR(void);

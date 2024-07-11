@@ -10,8 +10,8 @@ bool _sd = false; // flag to check if SD module compile
 uint8_t _sot = DISCONNECTED;
 
 /* States Machines */
-void SdStateMachine(void* pvParameters);
-void ConnStateMachine(void* pvParameters);
+void SdStateMachine(void *pvParameters);
+void ConnStateMachine(void *pvParameters);
 
 void setup()
 {
@@ -21,19 +21,20 @@ void setup()
   pinConfig(); // Hardware and Interrupt Config
 
   /* CAN-BUS Initialize */
-  if(!CAN_start_device()) esp_restart();
+  if(!CAN_start_device()) 
+    esp_restart();
   
   /* Tasks */
-  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 4096, NULL, 5, &SDlogging, 0);
   // This state machine is responsible for the Basic CAN logging
-  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 4096, NULL, 5, &ConectivityState, 1);
+  xTaskCreatePinnedToCore(SdStateMachine, "SDStateMachine", 4096, NULL, 5, &SDlogging, 0);
   // This state machine is responsible for the GPRS connection          
+  xTaskCreatePinnedToCore(ConnStateMachine, "ConnectivityStateMachine", 4096, NULL, 5, &ConectivityState, 1);
 }
 
 void loop() {/**/} 
 
 /* SD State Machine */
-void SdStateMachine(void* pvParameters)
+void SdStateMachine(void *pvParameters)
 {
   _sd = start_SD_device();
 
@@ -49,13 +50,14 @@ void SdStateMachine(void* pvParameters)
 }
 
 /* Connectivity State Machine */
-void ConnStateMachine(void* pvParameters)
+void ConnStateMachine(void *pvParameters)
 {
   _sot = Initialize_GSM(); 
-  if((_sot & 0x04)==ERROR_CONECTION)
+
+  if((_sot & 0x04) == ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg(_sot);
-    delay(DELAY_ERROR(_sot));
+    vTaskDelay(DELAY_ERROR(_sot));
     esp_restart();
   } 
   Send_SOT_msg(_sot);
@@ -64,10 +66,9 @@ void ConnStateMachine(void* pvParameters)
   {
     if(!Check_mqtt_client_conection())
     {
-      _sot==CONNECTED ? _sot ^= (DISCONNECTED|0x01) : 0; // disable online flag 
+      _sot == CONNECTED ? _sot = DISCONNECTED : 0; // disable online flag 
       Send_SOT_msg(_sot);
       gsmReconnect(_sot);
-      //while(_sot==DISCONNECTED) { _sot = gsmReconnect(); vTaskDelay(5); }
       Send_SOT_msg(_sot); 
     }
 

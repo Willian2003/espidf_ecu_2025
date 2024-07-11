@@ -2,25 +2,25 @@
 
 /* GPRS credentials */
 #ifdef TIM
-  WORD apn = "timbrasil.br";    // Your APN
-  WORD gprsUser = "tim";        // User
-  WORD gprsPass = "tim";        // Password
-  WORD simPIN = "1010";         // SIM card PIN code, if any
+  const char *apn = "timbrasil.br";    // Your APN
+  const char *gprsUser = "tim";        // User
+  const char *gprsPass = "tim";        // Password
+  const char *simPIN = "1010";         // SIM card PIN code, if any
 #elif defined(CLARO)
-  WORD apn = "claro.com.br";    // Your APN
-  WORD gprsUser = "claro";      // User
-  WORD gprsPass = "claro";      // Password
-  WORD simPIN = "3636";         // SIM cad PIN code, id any
+  const char *apn = "claro.com.br";    // Your APN
+  const char *gprsUser = "claro";      // User
+  const char *gprsPass = "claro";      // Password
+  const char *simPIN = "3636";         // SIM cad PIN code, id any
 #elif defined(VIVO)
-  WORD apn = "zap.vivo.com.br";  // Your APN
-  WORD gprsUser = "vivo";        // User
-  WORD gprsPass = "vivo";        // Password
-  WORD simPIN = "8486";          // SIM cad PIN code, id any
+  const char *apn = "zap.vivo.com.br";  // Your APN
+  const char *gprsUser = "vivo";        // User
+  const char *gprsPass = "vivo";        // Password
+  const char *simPIN = "8486";          // SIM cad PIN code, id any
 #else
-  WORD apn = "timbrasil.br";    // Your APN
-  WORD gprsUser = "tim";        // User
-  WORD gprsPass = "tim";        // Password
-  WORD simPIN = "1010";         // SIM card PIN code, if any
+  const char *apn = "timbrasil.br";    // Your APN
+  const char *gprsUser = "tim";        // User
+  const char *gprsPass = "tim";        // Password
+  const char *simPIN = "1010";         // SIM card PIN code, if any
 #endif
 //unsigned long timer;
 // Flags to ticker function 
@@ -31,13 +31,13 @@ bool buff = false;
 uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 int volatile_position = 0;
 
-WORD node_server = "64.227.19.172";
+const char *node_server = "64.227.19.172";
 char payload_char[MSG_BUFFER_SIZE];
 char msg[MSG_BUFFER_SIZE];
 // ESP hotspot definitions
-WORD host = "esp32";                   // Here's your "host device name"
-WORD ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
-WORD ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
+const char *host = "esp32";                   // Here's your "host device name"
+const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
+const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 /* GSM definitions */
 #include <TinyGSM.h>
@@ -69,7 +69,7 @@ uint8_t Initialize_GSM()
   if(!modem.waitForNetwork(128000L))
   {
     Serial.println("fail");
-    return (uint8_t)(ERROR_CONECTION|1);
+    return (uint8_t)(ERROR_CONECTION | 1);
   }
   Serial.println("OK");
 
@@ -83,7 +83,7 @@ uint8_t Initialize_GSM()
   if(!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
     Serial.println(" fail");
-    return (uint8_t)(ERROR_CONECTION|1);
+    return (uint8_t)(ERROR_CONECTION | 1);
   }
   Serial.println(" OK");
 
@@ -112,7 +112,7 @@ uint8_t Initialize_GSM()
   return (uint8_t)CONNECTED;
 }
 
-void gsmCallback(char* topic, byte* payload, unsigned int length)
+void gsmCallback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -133,7 +133,7 @@ boolean Check_mqtt_client_conection()
   return mqttClient.connected();
 }
 
-void gsmReconnect(uint8_t& _try_reconect)
+void gsmReconnect(uint8_t &_try_reconect)
 {
   int count = 0;
   Serial.println("Conecting to MQTT Broker...");
@@ -174,7 +174,7 @@ void Send_msg_MQTT()
   mqttClient.loop();
 }
 
-void publishPacket(void* T, uint32_t len)  
+void publishPacket(void *T, uint32_t len)  
 {
   /* 
     Send the message using JSON example: 
@@ -207,13 +207,12 @@ void publishPacket(void* T, uint32_t len)
 }
 
 /* Ticker functions */
-Ticker ticker1Hz,
-       ticker20Hz;
+Ticker ticker1Hz, ticker20Hz;
 
 void setup_GSM_tic() 
 {
-  ticker1Hz.attach(1.0, ticker1HzISR);
-  ticker20Hz.attach(1/20.0, ticker20HzISR);
+  ticker1Hz.attach(1.0f, ticker1HzISR);
+  ticker20Hz.attach(0.05f, ticker20HzISR);
 }
 
 void ticker1HzISR()

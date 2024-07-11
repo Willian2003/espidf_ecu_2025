@@ -30,10 +30,10 @@ typedef struct
     int16_t acc_x;
     int16_t acc_y;
     int16_t acc_z;
+
     int16_t dps_x;
     int16_t dps_y;
     int16_t dps_z;
-    
 } imu_t;
     
 typedef struct
