@@ -1,12 +1,12 @@
 #include "CAN.h"
 
 bool mode = false;
-mqtt_packet_t can_receive_packet = setupVolatilePacket();
+mqtt_packet_t can_receive_packet;
 CANmsg txMsg(CAN_RX_id, CAN_TX_id, CAN_BPS_1000K);
 
-bool CAN_start_device()
+bool CAN_start_device(bool debug_mode)
 {
-  txMsg.Set_Debug_Mode(false);
+  txMsg.Set_Debug_Mode(debug_mode);
   if(!txMsg.init(canISR))
   {
     log_e("CAN ERROR!! SYSTEM WILL RESTART IN 2 SECONDS...");
@@ -17,15 +17,9 @@ bool CAN_start_device()
    * txMsg.init(canISR, ID); or txMsg.init(canISR, ID, Mask);
       * if you ID is bigger then 0x7FF the extended mode is activated
    * you can set the filter in this function too:
-   * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended);  */ 
+   * txMsg.Set_Filter(uint32_t ID, uint32_t Mask, bool Extended);  */
+  memset(&can_receive_packet, 0, sizeof(mqtt_packet_t));
   return true;
-}
-
-mqtt_packet_t setupVolatilePacket()
-{ 
-  mqtt_packet_t t;
-  memset(&t, 0x00, sizeof(mqtt_packet_t));
-  return t;
 }
 
 void Send_SOT_msg(uint8_t _msg)
@@ -50,9 +44,10 @@ mqtt_packet_t update_packet()
 }
 
 /* CAN functions */
-void canISR(CAN_FRAME* rxMsg)
+void canISR(CAN_FRAME *rxMsg)
 { 
-  mode = !mode; digitalWrite(EMBEDDED_LED, mode);
+  mode = !mode; 
+  digitalWrite(EMBEDDED_LED, mode);
 
   can_receive_packet.timestamp = millis();
 

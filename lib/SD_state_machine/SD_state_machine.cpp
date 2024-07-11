@@ -3,8 +3,7 @@
 // Define timeout time in milliseconds,0 (example: 2000ms = 2s)
 const long timeoutTime = 3000;
 bool mounted = false;
-char file_name[20];
-File root; 
+char file_name[20]; 
 File dataFile;
 /* Debug Variables */
 boolean savingBlink = false;
@@ -13,7 +12,7 @@ boolean saveFlag = false;
 void pinConfig()
 {
   // Pins
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
   //pinMode(CAN_INTERRUPT, INPUT_PULLUP);
   // pinMode(MODEM_RST, OUTPUT);
@@ -40,11 +39,13 @@ bool start_SD_device()
 
 bool sdConfig()
 {
-  if(!SD.begin(SD_CS)) return false;
+  if(!SD.begin(SD_CS)) 
+    return false;
 
+  File root;
   root = SD.open("/");
   int num_files = countFiles(root);
-  sprintf(file_name, "/%s%d.csv", "data", num_files+1);
+  sprintf(file_name, "/%s%d.csv", "data", num_files + 1);
   mounted = true;
 
   return true;
@@ -56,11 +57,11 @@ int countFiles(File dir)
   for(;;)
   {
     File entry = dir.openNextFile();
+    
+    // no more files
     if(!entry)
-    {
-      // no more files
       break;
-    }
+    
     // for each file count it
     fileCountOnSD++;
     entry.close();
@@ -196,7 +197,7 @@ Ticker ticker40Hz;
 
 void setup_SD_ticker()
 { 
-  ticker40Hz.attach(0.025, ticker40HzISR);
+  ticker40Hz.attach(0.025f, ticker40HzISR);
 }
 
 void ticker40HzISR()

@@ -21,6 +21,7 @@ void Check_SD_for_storage(void);
 
 /* Ticker definitions */
 void setup_SD_ticker(void);
+
 /* Ticker interrupts */
 void ticker40HzISR(void);
 
