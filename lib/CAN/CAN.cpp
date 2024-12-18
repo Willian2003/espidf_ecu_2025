@@ -2,7 +2,7 @@
 
 bool mode = false;
 mqtt_packet_t can_receive_packet;
-bool BLE_request = true;
+bool BLE_request = false;
 CANmsg txMsg(CAN_RX_id, CAN_TX_id, CAN_BPS_1000K);
 
 bool CAN_start_device(bool debug_mode)
