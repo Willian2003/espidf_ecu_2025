@@ -71,7 +71,7 @@ uint8_t Initialize_GSM()
   if (!modem.waitForNetwork(15000L))
   {
     Serial.println("fail");
-    return (uint8_t)(ERROR_CONECTION | 1);
+    return (uint8_t)ERROR_CONECTION;
   }
   Serial.println("OK");
 
@@ -85,7 +85,7 @@ uint8_t Initialize_GSM()
   if (!modem.gprsConnect(apn, gprsUser, gprsPass))
   {
     Serial.println(" fail");
-    return (uint8_t)(ERROR_CONECTION | 1);
+    return (uint8_t)ERROR_CONECTION;
   }
   Serial.println(" OK");
 

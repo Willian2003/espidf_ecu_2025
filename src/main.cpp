@@ -67,6 +67,7 @@ void SdStateMachine(void *pvParameters)
   vTaskDelay(1);
 }
 
+/* BLE_RESQUEST State Machine */
 void BLE_RESQUEST_StateMachine(void *pvParameters)
 {
   while (1)
@@ -74,10 +75,10 @@ void BLE_RESQUEST_StateMachine(void *pvParameters)
     if (MPU_request_Debug_data())
       Send_SCU_FLAGS(bluetooth_packet);
 
-    vTaskDelay(750 / portTICK_PERIOD_MS);
+    vTaskDelay(150 / portTICK_PERIOD_MS);
   }
 
-  vTaskDelay(5 / portTICK_PERIOD_MS);
+  vTaskDelay(1);
 }
 
 /* Connectivity State Machine */
@@ -87,13 +88,13 @@ void ConnStateMachine(void *pvParameters)
   _sot = Initialize_GSM();
   Serial.println("After Initialize_GSM");
 
-  if ((_sot & 0x04) == ERROR_CONECTION)
+  if (_sot == ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg(_sot);
     vTaskDelay(DELAY_ERROR(_sot));
   }
 
-  save_SOT_data((_sot & 0x04), &bluetooth_packet);
+  save_SOT_data(_sot, &bluetooth_packet);
   Send_SOT_msg(_sot);
 
   while (1)
