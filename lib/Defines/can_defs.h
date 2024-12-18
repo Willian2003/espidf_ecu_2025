@@ -17,13 +17,36 @@
 #define SOC_ID          0x302       // 1by
 #define RPM_ID          0x304       // 2by           
 #define SOT_ID          0x305       // 1by
-#define TEMPERATURE_ID  0x400       // 1by          
+#define TEMPERATURE_ID  0x400       // 1by     
 #define CVT_ID          0x401       // 1by
 #define FUEL_ID         0x500       // 2by           
 #define VOLTAGE_ID      0x502       // 4by
-#define CURRENT_ID      0x505       // 4by 
+#define CURRENT_ID      0x505       // 4by
 #define LAT_ID          0x600       // 8by
 #define LNG_ID          0x700       // 8by
+
+#define MMI_ID          0x306
+#define TCU_ID          0x307
+#define SCU_ID          0x308
+#define MPU_ID          0x309
+
+// #define CAN_BUS_INIT_ID             0x510
+// #define INTERNET_MODEM_ID           0x520
+// #define MQTT_CLIENT_CONNECTION_ID   0x530
+// #define SD_START_ID                 0x540
+// #define CHECK_SD_ID                 0x550
+// #define ACCEL_BEGIN_ID              0X560
+// #define TERMISTOR_ID                0X565
+// #define CVT_TEMPERATURE_ID          0x570
+// #define MEASURE_VOLT_ID             0x575
+// #define SPEED_PULSE_COUNTER_ID      0x580
+// #define SERVO_STATE_ID              0x585
+
+// #define CAN_BUS_INIT_ID             0x800
+// #define INTERNET_MODEM_ID           0x801
+// #define MQTT_CLIENT_CONNECTION_ID   0x802
+// #define SD_START_ID                 0x803
+// #define CHECK_SD_ID                 0x804
 
 typedef struct
 {
