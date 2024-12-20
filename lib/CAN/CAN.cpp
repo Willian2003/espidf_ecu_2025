@@ -44,14 +44,9 @@ void Send_SCU_FLAGS(bluetooth ble)
 {
   uint8_t _msg;
 
-  /* Transform 2 in 1 and 1 in 0, moving the bit to the right */
-  ble.internet_modem >>= 1;
-  ble.mqtt_client_connection >>= 1;
-  ble.sd_start >>= 1;
-  ble.check_sd >>= 1;
-
-  _msg |= (ble.internet_modem | (ble.mqtt_client_connection << 1)); // Create LTE flag
-  _msg |= ((ble.sd_start << 2) | (ble.check_sd << 3));              // Create SD flag
+  // 2 bits per message
+  _msg |= (ble.internet_modem | (ble.mqtt_client_connection << 2)); // Create LTE flag
+  _msg |= ((ble.sd_start << 4) | (ble.check_sd << 6));              // Create SD flag
 
   Serial.println(_msg);
 
