@@ -9,35 +9,21 @@ File dataFile;
 boolean savingBlink = false;
 boolean saveFlag = false;
 
-void pinConfig()
-{
-  // Pins
-  pinMode(EMBEDDED_LED, OUTPUT);
-  pinMode(DEBUG_LED, OUTPUT);
-  // pinMode(CAN_INTERRUPT, INPUT_PULLUP);
-  //  pinMode(MODEM_RST, OUTPUT);
-  //  digitalWrite(MODEM_RST, HIGH);
-
-  return;
-}
-
-bool start_SD_device()
+uint8_t start_SD_device()
 {
   do
-  {
-    Serial.println("Mount SD...");
-  } while (!sdConfig() && millis() < timeoutTime);
+  { Serial.println("Mount SD..."); } while (!sdConfig() && millis() < timeoutTime);
 
   if (!mounted)
   {
     Serial.println("SD mounted error!!");
-    return false;
-  } else {
-    sdSave(true);
-    setup_SD_ticker();
+    return FAIL_RESPONSE;
   }
+    
+  sdSave(true);
+  setup_SD_ticker();
 
-  return mounted;
+  return SUCESS_RESPONSE;
 }
 
 bool sdConfig()
@@ -75,7 +61,7 @@ int countFiles(File dir)
 
 uint8_t sdSave(bool set)
 {
-  uint8_t check_sd;
+  uint8_t check_sd = FAIL_RESPONSE;
 
   dataFile = SD.open(file_name, FILE_APPEND);
 
@@ -85,19 +71,19 @@ uint8_t sdSave(bool set)
     dataFile.close();
     savingBlink = !savingBlink;
     digitalWrite(DEBUG_LED, savingBlink);
-    check_sd = 2;
+    check_sd = SUCESS_RESPONSE;
   }
   
   else
   {
     digitalWrite(DEBUG_LED, LOW);
     Serial.println(F("falha no save"));
-    check_sd = 1;
+    check_sd = FAIL_RESPONSE;
   }
   
-  Serial.println("Into the function");
-  Serial.print("check_sd --> ");
-  Serial.println(check_sd);
+  //Serial.println("Into the function");
+  //Serial.print("check_sd --> ");
+  //Serial.println(check_sd);
 
   return check_sd;
 }
@@ -201,7 +187,7 @@ String packetToString(bool err)
 
 uint8_t Check_SD_for_storage()
 {
-  static uint8_t sd_status = 1;
+  static uint8_t sd_status = FAIL_RESPONSE;
 
   if (saveFlag && mounted)
   {

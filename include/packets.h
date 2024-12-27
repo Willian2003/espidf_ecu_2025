@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MB1_ID 11
-#define MB2_ID 22
+#define SUCESS_RESPONSE 2
+#define FAIL_RESPONSE   1
 
 typedef struct
 {

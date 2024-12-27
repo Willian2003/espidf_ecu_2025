@@ -9,10 +9,8 @@
 #include "can_defs.h"
 #include "packets.h" 
 
-void pinConfig(void); // Hardware and Interrupt Config
-
 /* SD definitions */
-bool start_SD_device(void);
+uint8_t start_SD_device(void);
 bool sdConfig(void);
 int countFiles(File dir);
 uint8_t sdSave(bool set); 

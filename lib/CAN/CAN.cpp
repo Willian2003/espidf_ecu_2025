@@ -42,13 +42,13 @@ void Send_SOT_msg(uint8_t _msg)
 
 void Send_SCU_FLAGS(bluetooth ble)
 {
-  uint8_t _msg;
+  uint8_t _msg = 0x00;
 
   // 2 bits per message
   _msg |= (ble.internet_modem | (ble.mqtt_client_connection << 2)); // Create LTE flag
   _msg |= ((ble.sd_start << 4) | (ble.check_sd << 6));              // Create SD flag
 
-  Serial.println(_msg);
+  //Serial.println(_msg);
 
   vTaskDelay(1);
 

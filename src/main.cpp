@@ -1,17 +1,16 @@
 #include <Arduino.h>
 /* CAN Libraries */
 #include <CAN.h>
-/* Libraries of SD, Conectivity and BLE_DEBUG state Machine */
+/* Libraries of SD, Conectivity(LTE) and BLE_DEBUG state Machine */
 #include <SD_state_machine.h>
 #include <CON_state_machine.h>
-#include <BLE_state_machine.h>
 
 /* Task Management */
 TaskHandle_t SDlogging = NULL, ConectivityState = NULL, BLE_RESQUEST_State = NULL;
 
 /* SD status variables */
-bool _sd = false;  // flag to check if SD module compile
-uint8_t sd_status; // flag to check if SD module still working
+uint8_t _sd = FAIL_RESPONSE;       // flag to check if SD module compile
+uint8_t sd_status = FAIL_RESPONSE; // flag to check if SD module still working
 
 /* State Of Telemetry (SOT) variables */
 uint8_t _sot = DISCONNECTED;
@@ -29,7 +28,9 @@ void setup()
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
-  pinConfig(); // Hardware and Interrupt Config
+  /* Hardware and Interrupt Config */
+  pinMode(EMBEDDED_LED, OUTPUT);
+  pinMode(DEBUG_LED, OUTPUT);
 
   /* CAN-BUS Initialize */
   if (!CAN_start_device())
@@ -51,17 +52,17 @@ void loop() { /**/ }
 /* SD State Machine */
 void SdStateMachine(void *pvParameters)
 {
-  _sd = start_SD_device();
-
-  save_SD_data(_sd, &bluetooth_packet);
+  bluetooth_packet.sd_start = _sd = start_SD_device();
+  //Serial.printf("_sd --> %d\r\n", bluetooth_packet.sd_start);
 
   while (1)
   {
     bluetooth_packet.check_sd = Check_SD_for_storage();
 
-    save_SD_status_data(&bluetooth_packet);
+    //Serial.println("Out the function");
+    //Serial.printf("bluetooth_packet.check_sd --> %d\r\n", bluetooth_packet.check_sd);
 
-    vTaskDelay((_sd ? 1 : 100));
+    vTaskDelay(1 / portTICK_PERIOD_MS);
   }
 
   vTaskDelay(1);
@@ -75,7 +76,7 @@ void BLE_RESQUEST_StateMachine(void *pvParameters)
     if (MPU_request_Debug_data())
       Send_SCU_FLAGS(bluetooth_packet);
 
-    vTaskDelay(150 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 
   vTaskDelay(1);
@@ -84,33 +85,48 @@ void BLE_RESQUEST_StateMachine(void *pvParameters)
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
 {
-  Serial.println("Into the conn_function");
+  //Serial.println("Into the conn_function");
   _sot = Initialize_GSM();
-  Serial.println("After Initialize_GSM");
+  //Serial.println("After Initialize_GSM");
 
   if (_sot == ERROR_CONECTION)
   { // enable the error bit
     Send_SOT_msg(_sot);
+    bluetooth_packet.internet_modem = FAIL_RESPONSE;
+    //Serial.printf("internet_modem_erro --> %d\r\n", bluetooth_packet.internet_modem);
     vTaskDelay(DELAY_ERROR(_sot));
   }
+  
+  else
+  {
+    bluetooth_packet.internet_modem = SUCESS_RESPONSE;
+    //Serial.printf("internet_modem_ok --> %d\r\n", bluetooth_packet.internet_modem);
+  }
 
-  save_SOT_data(_sot, &bluetooth_packet);
+  //Serial.printf("internet_modem_geral --> %d\r\n", bluetooth_packet.internet_modem);
   Send_SOT_msg(_sot);
 
   while (1)
   {
-    Serial.print("Into the internet while --> ");
-    bool mqtt_client_conection = Check_mqtt_client_conection();
+    //Serial.print("Into the internet while --> ");  
     
-    save_mqtt_client_connection_data(mqtt_client_conection, &bluetooth_packet);
-    
-    if (!mqtt_client_conection)
+    if (!Check_mqtt_client_conection())
     {
+      bluetooth_packet.mqtt_client_connection = FAIL_RESPONSE;
+      //Serial.printf("mqtt_client_connection_erro --> %d\r\n", bluetooth_packet.mqtt_client_connection);
       _sot == CONNECTED ? _sot = DISCONNECTED : 0; // disable online flag
       Send_SOT_msg(_sot);
       gsmReconnect(_sot);
       Send_SOT_msg(_sot);
     }
+
+    else
+    {
+      bluetooth_packet.mqtt_client_connection = SUCESS_RESPONSE;
+      //Serial.print("mqtt_client_connection_ok --> %d\r\n", bluetooth_packet.mqtt_client_connection);
+    }
+
+    //Serial.printf("mqtt_client_connection_geral --> %d\r\n", bluetooth_packet.mqtt_client_connection);
 
     Send_msg_MQTT();
 
