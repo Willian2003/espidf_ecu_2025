@@ -9,34 +9,34 @@
 
 typedef struct
 {
-    int16_t acc_x = 10;
-    int16_t acc_y = 12;
-    int16_t acc_z = 13;
+    int16_t acc_x = 10000;
+    int16_t acc_y = 12000;
+    int16_t acc_z = 13000;
 } imu_acc_t;
 
 typedef struct
 {
-    int16_t dps_x = 14 ;
-    int16_t dps_y = 15;
-    int16_t dps_z = 16;
+    int16_t dps_x = 14000;
+    int16_t dps_y = 15000;
+    int16_t dps_z = 16000;
 } imu_dps_t;
 
 typedef struct
 {
-    int16_t Roll = 17;
-    int16_t Pitch = 18;
+    int16_t Roll = 17000;
+    int16_t Pitch = 18000;
 } Angle_t;
 
 typedef struct
 {
     /* REAR DATAS */
     float volt = 18.5;
-    uint8_t SOC = 19;
-    uint8_t cvt = 20;
+    uint8_t SOC = 190;
+    uint8_t cvt = 200;
     // uint16_t fuel;
     float current = 21.5;
-    uint8_t temperature = 22;
-    uint16_t speed = 23;
+    uint8_t temperature = 220;
+    uint16_t speed = 230;
 
     /* FRONT DATAS */
     imu_acc_t imu_acc;
@@ -46,11 +46,11 @@ typedef struct
     uint8_t flags = 8; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
 
     /* MPU DATAS */
-    double latitude = 24.45;
-    double longitude = 25.45;
+    double latitude = 240.45;
+    double longitude = 255.45;
 
     /* DEBUG DATA */
-    uint32_t timestamp = 2640;
+    uint32_t timestamp = 2640000;
 
 } mqtt_packet_t;
 

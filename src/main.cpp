@@ -30,10 +30,14 @@ void setup()
 
   mqtt_packet_t s;
   uint8_t as[sizeof(mqtt_packet_t)];
-  memcpy(&as, (uint8_t*)&s, sizeof(mqtt_packet_t));
+  memcpy(as, (uint8_t*)&s, sizeof(mqtt_packet_t));
   Serial.print("[");
   for (int i = 0; i < sizeof(mqtt_packet_t); i++)
-  Serial.printf("%x ", as[i]);
+  {
+    Serial.print(as[i], HEX);
+    Serial.print("  ");
+
+  }
   Serial.print("]");
 
   /* Hardware and Interrupt Config */
