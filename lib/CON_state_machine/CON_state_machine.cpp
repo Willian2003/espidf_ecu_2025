@@ -33,7 +33,7 @@ bool buff = false;
 uint8_t volatile_bytes[MSG_BUFFER_SIZE];
 int volatile_position = 0;
 
-const char *node_server = "64.227.19.172";
+const char *node_server = "69.55.61.114";
 char payload_char[MSG_BUFFER_SIZE];
 char msg[MSG_BUFFER_SIZE];
 // ESP hotspot definitions
@@ -146,7 +146,7 @@ void gsmReconnect(uint8_t &_try_reconect)
     String clientId = "ESP32Client-";
     clientId += String(random(0xffff), HEX);
 
-    if (mqttClient.connect(clientId.c_str(), "manguebaja", "aratucampeao", "/esp-connected", 2, true, "Offline", true))
+    if (mqttClient.connect(clientId.c_str(), "manguebaja", "Rolabosta1417", "/esp-connected", 2, true, "Offline", true))
     {
       sprintf(msg, "%s", "Online");
       mqttClient.publish("/esp-connected", msg);

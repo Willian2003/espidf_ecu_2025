@@ -25,20 +25,6 @@ void BLE_RESQUEST_StateMachine(void *pvParameters);
 
 void setup()
 {
-  Serial.begin(115200);
-  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-
-  mqtt_packet_t s;
-  uint8_t as[sizeof(mqtt_packet_t)];
-  memcpy(as, (uint8_t*)&s, sizeof(mqtt_packet_t));
-  Serial.print("[");
-  for (int i = 0; i < sizeof(mqtt_packet_t); i++)
-  {
-    Serial.print(as[i], HEX);
-    Serial.print("  ");
-
-  }
-  Serial.print("]");
 
   /* Hardware and Interrupt Config */
   pinMode(EMBEDDED_LED, OUTPUT);
