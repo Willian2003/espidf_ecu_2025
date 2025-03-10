@@ -25,6 +25,8 @@ void BLE_RESQUEST_StateMachine(void *pvParameters);
 
 void setup()
 {
+  Serial.begin(115200);
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
   /* Hardware and Interrupt Config */
   pinMode(EMBEDDED_LED, OUTPUT);
