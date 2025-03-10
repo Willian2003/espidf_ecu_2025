@@ -9,48 +9,48 @@
 
 typedef struct
 {
-    int16_t acc_x;
-    int16_t acc_y;
-    int16_t acc_z;
+    int16_t acc_x = 10000;
+    int16_t acc_y = 11000;
+    int16_t acc_z = 12000;
 } imu_acc_t;
 
 typedef struct
 {
-    int16_t dps_x;
-    int16_t dps_y;
-    int16_t dps_z;
+    int16_t dps_x = 13000;
+    int16_t dps_y = 14000;
+    int16_t dps_z = 15000;
 } imu_dps_t;
 
 typedef struct
 {
-    int16_t Roll;
-    int16_t Pitch;
+    int16_t Roll = 16000;
+    int16_t Pitch = 17000;
 } Angle_t;
 
 typedef struct
 {
     /* REAR DATAS */
-    float volt;
-    uint8_t SOC;
-    uint8_t cvt;
+    float volt = 190.7;
+    uint8_t SOC = 200;
+    uint8_t cvt = 210;
     // uint16_t fuel;
-    float current;
-    uint8_t temperature;
-    uint16_t speed;
+    float current = 22.7;
+    uint8_t temperature = 230;
+    uint16_t speed = 240;
 
     /* FRONT DATAS */
     imu_acc_t imu_acc;
     imu_dps_t imu_dps;
     Angle_t Angle;
-    uint16_t rpm;
-    uint8_t flags; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
+    uint16_t rpm = 4800;
+    uint8_t flags = 4; // MSB - BOX | BUFFER FULL | NC | NC | FUEL_LEVEL | SERVO_ERROR | CHK | RUN - LSB
 
     /* MPU DATAS */
-    double latitude;
-    double longitude;
+    double latitude = 250.75;
+    double longitude = 260.75;
 
     /* DEBUG DATA */
-    uint32_t timestamp;
+    uint32_t timestamp =  27000000;
 
 } mqtt_packet_t;
 
