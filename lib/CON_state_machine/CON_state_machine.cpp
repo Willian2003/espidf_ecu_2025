@@ -36,10 +36,6 @@ int volatile_position = 0;
 const char *node_server = "69.55.61.114";
 char payload_char[MSG_BUFFER_SIZE];
 char msg[MSG_BUFFER_SIZE];
-// ESP hotspot definitions
-const char *host = "esp32";                   // Here's your "host device name"
-const char *ESP_ssid = "Mangue_Baja_DEV";     // Here's your ESP32 WIFI ssid
-const char *ESP_password = "aratucampeaodev"; // Here's your ESP32 WIFI pass
 
 /* GSM definitions */
 #include <TinyGSM.h>
@@ -52,6 +48,7 @@ PubSubClient mqttClient(client);
 
 uint8_t Initialize_GSM()
 {
+
   // To skip it, call init() instead of restart()
   Serial.println("Initializing modem...");
   modem.restart();
@@ -87,27 +84,11 @@ uint8_t Initialize_GSM()
     Serial.println(" fail");
     return (uint8_t)ERROR_CONECTION;
   }
-  Serial.println(" OK");
-
-  // Wi-Fi Config and Debug
-  WiFi.mode(WIFI_MODE_AP);
-  WiFi.softAP(ESP_ssid, ESP_password);
-  WiFi.begin(ESP_ssid, ESP_password);
-
-  // if(!MDNS.begin(host)) // Use MDNS to solve DNS
-  // {
-  //   // http://esp32.local
-  //   Serial.println("Error configuring mDNS. Rebooting in 1s...");
-  //   return (uint8_t)ERROR_CONECTION;
-  // }
-  // Serial.println("mDNS configured;");
+  Serial.println("OK");
 
   mqttClient.setServer(node_server, PORT);
   // mqttClient.setCallback(gsmCallback);
   mqttClient.setBufferSize(MAX_GPRS_BUFFER - 1);
-
-  Serial.println("Ready");
-  Serial.print("SoftAP IP address: "); Serial.println(WiFi.softAPIP());
 
   setup_GSM_tic();
 

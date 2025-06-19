@@ -1,6 +1,8 @@
 #include <Arduino.h>
 /* CAN Libraries */
 #include <CAN.h>
+/* OTA functions Librarie */
+#include <ota.h>
 /* Libraries of SD, Conectivity(LTE) and BLE_DEBUG state Machine */
 #include <SD_state_machine.h>
 #include <CON_state_machine.h>
@@ -28,6 +30,12 @@ void setup()
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
+  /* SPIFFS Initialize */
+  if(!SPIFFS.begin(true)){
+      Serial.println("Ocorreu um erro ao montar o SPIFFS");
+      return;
+  }
+
   /* Hardware and Interrupt Config */
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
@@ -37,6 +45,9 @@ void setup()
     esp_restart();
 
   memset(&bluetooth_packet, 1, sizeof(bluetooth));
+
+  setupnetwork();
+  setupServerRoutes();
 
   /* Tasks */
   // This state machine is responsible for the Basic CAN logging
@@ -84,7 +95,7 @@ void BLE_RESQUEST_StateMachine(void *pvParameters)
 
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
-{
+{/*
   //Serial.println("Into the conn_function");
   _sot = Initialize_GSM();
   //Serial.println("After Initialize_GSM");
@@ -104,10 +115,10 @@ void ConnStateMachine(void *pvParameters)
   }
 
   //Serial.printf("internet_modem_geral --> %d\r\n", bluetooth_packet.internet_modem);
-  Send_SOT_msg(_sot);
+  Send_SOT_msg(_sot);*/
 
   while (1)
-  {
+  {/*
     //Serial.print("Into the internet while --> ");  
     
     if (!Check_mqtt_client_conection())
@@ -130,7 +141,8 @@ void ConnStateMachine(void *pvParameters)
 
     Send_msg_MQTT();
 
-    vTaskDelay(1);
+    vTaskDelay(1);*/
+    handleServerClient();
   }
 
   vTaskDelay(1);
