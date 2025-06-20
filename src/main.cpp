@@ -30,12 +30,6 @@ void setup()
   Serial.begin(115200);
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
-  /* SPIFFS Initialize */
-  if(!SPIFFS.begin(true)){
-      Serial.println("Ocorreu um erro ao montar o SPIFFS");
-      return;
-  }
-
   /* Hardware and Interrupt Config */
   pinMode(EMBEDDED_LED, OUTPUT);
   pinMode(DEBUG_LED, OUTPUT);
@@ -43,6 +37,10 @@ void setup()
   /* CAN-BUS Initialize */
   if (!CAN_start_device())
     esp_restart();
+
+  /* SPIFFS Initialize */
+  if(!SPIFFS.begin(true))
+    //Serial.println("Ocorreu um erro ao montar o SPIFFS");
 
   memset(&bluetooth_packet, 1, sizeof(bluetooth));
 
