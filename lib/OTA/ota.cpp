@@ -10,7 +10,7 @@ IPAddress local_IP(192, 168, 34, 1);
 IPAddress gateway(192, 168, 34, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-WebServer server(1880);
+WebServer server(1800);
 
 /**
  * @brief Configures and starts the Wi-Fi in Access Point mode.
@@ -24,7 +24,7 @@ void setupnetwork(){
   if(!MDNS.begin(host)) // Use MDNS to solve DNS
   {
     // http://esp32.local
-    //Serial.println("Error configuring mDNS. Rebooting in 1s...");
+    //Serial.println("Error configuring mDNS");
   }
   //Serial.println("mDNS configured");
 }
@@ -57,21 +57,31 @@ void setupServerRoutes(){
         ESP.restart();
     }, []() {
         HTTPUpload& upload = server.upload();
-        if (upload.status == UPLOAD_FILE_START) {
-            //Serial.printf("Update: %s\n", upload.filename.c_str());
-            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-                Update.printError(Serial);
-            }
-        } else if (upload.status == UPLOAD_FILE_WRITE) {
-            if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-                Update.printError(Serial);
-            }
-        } else if (upload.status == UPLOAD_FILE_END) {
-            if (Update.end(true)) {
-                Serial.printf("Update Success: %u bytes\n", upload.totalSize);
-            } else {
-                Update.printError(Serial);
-            }
+        switch (upload.status) {
+            case UPLOAD_FILE_START:
+                //Serial.printf("Update: %s\n", upload.filename.c_str());
+                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                    Update.printError(Serial);
+                }
+                break;
+
+            case UPLOAD_FILE_WRITE:
+                if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+                    Update.printError(Serial);
+                }
+                break;
+
+            case UPLOAD_FILE_END:
+                if (Update.end(true)) {
+                    //Serial.printf("Update Success: %u bytes\n", upload.totalSize);
+                } else {
+                    Update.printError(Serial);
+                }
+                break;
+            
+            default:
+                //Serial.printf("Update status desconhecido: %d\n", upload.status);
+                break;
         }
     });
 
