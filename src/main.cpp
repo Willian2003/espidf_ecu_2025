@@ -95,7 +95,7 @@ void BLE_RESQUEST_StateMachine(void *pvParameters)
 
 /* Connectivity State Machine */
 void ConnStateMachine(void *pvParameters)
-{/*
+{
   //Serial.println("Into the conn_function");
   _sot = Initialize_GSM();
   //Serial.println("After Initialize_GSM");
@@ -115,10 +115,10 @@ void ConnStateMachine(void *pvParameters)
   }
 
   //Serial.printf("internet_modem_geral --> %d\r\n", bluetooth_packet.internet_modem);
-  Send_SOT_msg(_sot);*/
+  Send_SOT_msg(_sot);
 
   while (1)
-  {/*
+  {
     //Serial.print("Into the internet while --> ");  
     
     if (!Check_mqtt_client_conection())
@@ -141,7 +141,7 @@ void ConnStateMachine(void *pvParameters)
 
     Send_msg_MQTT();
 
-    vTaskDelay(1);*/
+    vTaskDelay(1);
     handleServerClient();
   }
 
